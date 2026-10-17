@@ -1,0 +1,5 @@
+# Normalize line endings so Windows and Linux contributors don't fight
+* text=auto eol=lf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.jar binary
