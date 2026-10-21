@@ -23,7 +23,8 @@ import java.util.Locale;
  * <p>How one utterance works:
  * <ol>
  *   <li>Start piper.exe with a voice model and --output_raw.</li>
- *   <li>Write the text to its stdin. Piper turns it into audio one sentence at a time.</li>
+ *   <li>Write the text to its stdin on a separate thread. Piper turns it into audio one
+ *       sentence at a time, and only reads more text as it speaks.</li>
  *   <li>A background thread reads the raw audio (16-bit mono PCM) from piper's stdout and
  *       plays it through Java Sound as it arrives, so the first sentence starts quickly.</li>
  * </ol>
@@ -63,9 +64,9 @@ public final class PiperSpeechEngine implements SpeechEngine {
                     .start();
             current = new Playback(process, voice.sampleRate());
             current.start();
-            try (OutputStream stdin = process.getOutputStream()) {
-                stdin.write(prepare(text).getBytes(StandardCharsets.UTF_8));
-            }
+            // Never write the text on this thread: Piper reads it only as fast as it speaks,
+            // so a long page would block here, and with it every other shortcut (even Stop).
+            current.feed(prepare(text));
         } catch (IOException e) {
             stop();
             throw new UncheckedIOException("Could not start Piper (" + piperExe + ")", e);
@@ -177,6 +178,22 @@ public final class PiperSpeechEngine implements SpeechEngine {
                 closeLine();
                 process.destroy();
             }
+        }
+
+        /** Sends the text to Piper on its own short-lived thread, so the caller returns at once. */
+        void feed(String text) {
+            Thread writer = new Thread(() -> {
+                try (OutputStream stdin = process.getOutputStream()) {
+                    stdin.write(text.getBytes(StandardCharsets.UTF_8));
+                } catch (IOException e) {
+                    // Expected when Stop kills Piper mid-write; only worth logging otherwise.
+                    if (!cancelled) {
+                        log.warn("Could not send text to Piper", e);
+                    }
+                }
+            }, "sayso-piper-input");
+            writer.setDaemon(true);
+            writer.start();
         }
 
         void cancel() {
