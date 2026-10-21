@@ -46,15 +46,15 @@ public final class ClipboardTextCapture implements TextCapture {
 
     @Override
     public String captureSelection() {
-        return capture(false);
+        return capture(false).text();
     }
 
     @Override
-    public String captureAll() {
+    public CapturedText captureAll() {
         return capture(true);
     }
 
-    private String capture(boolean selectAll) {
+    private CapturedText capture(boolean selectAll) {
         // The hotkey fires while Ctrl+Alt are still down. If we pressed Ctrl+C now,
         // the app would receive Ctrl+Alt+C. So wait until the user lets go.
         waitUntil(() -> !modifiersHeld.getAsBoolean(), MODIFIER_WAIT_MS);
@@ -67,10 +67,24 @@ public final class ClipboardTextCapture implements TextCapture {
                 sleep(50);
             }
             pressCtrlAnd(KeyEvent.VK_C);
-            return waitForCopiedText().strip();
+            String text = waitForCopiedText().strip();
+            // Read the HTML version while the copy is still on the clipboard (browsers provide one).
+            return text.isEmpty() ? CapturedText.EMPTY : new CapturedText(text, readHtml());
         } finally {
             saved.restore(this::setClipboard);
         }
+    }
+
+    /** The HTML version of what was copied, or null if the app didn't provide one. */
+    private String readHtml() {
+        try {
+            if (clipboard.isDataFlavorAvailable(DataFlavor.allHtmlFlavor)) {
+                return (String) clipboard.getData(DataFlavor.allHtmlFlavor);
+            }
+        } catch (IllegalStateException | UnsupportedFlavorException | IOException | ClassCastException e) {
+            log.debug("Could not read clipboard HTML", e);
+        }
+        return null;
     }
 
     private String waitForCopiedText() {
