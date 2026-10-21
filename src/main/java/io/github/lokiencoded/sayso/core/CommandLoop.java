@@ -1,6 +1,8 @@
 package io.github.lokiencoded.sayso.core;
 
+import io.github.lokiencoded.sayso.capture.CapturedText;
 import io.github.lokiencoded.sayso.capture.TextCapture;
+import io.github.lokiencoded.sayso.extract.PageCleaner;
 import io.github.lokiencoded.sayso.speech.SpeechEngine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,12 +60,12 @@ public final class CommandLoop implements Runnable {
             // The read shortcuts toggle: pressed while speaking, they stop instead.
             case READ_SELECTION -> {
                 if (!stopIfSpeaking()) {
-                    speakOr(capture.captureSelection(), "Nothing is selected.");
+                    speakOr(PageCleaner.tidy(capture.captureSelection()), "Nothing is selected.");
                 }
             }
             case READ_PAGE -> {
                 if (!stopIfSpeaking()) {
-                    speakOr(capture.captureAll(), "I couldn't find any text here.");
+                    speakOr(readablePage(capture.captureAll()), "I couldn't find any text here.");
                 }
             }
             case STOP -> speech.stop();
@@ -76,6 +78,21 @@ public final class CommandLoop implements Runnable {
             }
         }
         return true;
+    }
+
+    /**
+     * Just the article, when we can find it: the HTML version keeps the page's structure,
+     * so menus, sidebars and footers can be dropped. Apps that copy only plain text get
+     * a light cleanup instead.
+     */
+    static String readablePage(CapturedText page) {
+        if (page.hasHtml()) {
+            String article = PageCleaner.fromHtml(page.html());
+            if (!article.isBlank()) {
+                return article;
+            }
+        }
+        return PageCleaner.tidy(page.text());
     }
 
     /** Stops speech if any is playing. Returns true if it did. */

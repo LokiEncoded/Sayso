@@ -1,5 +1,6 @@
 package io.github.lokiencoded.sayso.core;
 
+import io.github.lokiencoded.sayso.capture.CapturedText;
 import io.github.lokiencoded.sayso.capture.TextCapture;
 import io.github.lokiencoded.sayso.speech.SpeechEngine;
 import org.junit.jupiter.api.Test;
@@ -43,6 +44,26 @@ class CommandLoopTest {
         capture.page = "The whole page";
         loop.handle(Command.READ_PAGE);
         assertEquals(List.of("The whole page"), speech.spoken);
+    }
+
+    @Test
+    void readsOnlyTheArticleWhenTheCopyHasHtml() {
+        capture.page = "Home News Sport\nBig story\nThe article text.\nPrivacy Terms";
+        capture.pageHtml = "<nav>Home News Sport</nav><article><h1>Big story</h1>"
+                + "<p>" + "The article text is long enough to count as an article. ".repeat(5) + "</p>"
+                + "</article><footer>Privacy Terms</footer>";
+        loop.handle(Command.READ_PAGE);
+        String spoken = speech.spoken.getFirst();
+        assertTrue(spoken.startsWith("Big story."));
+        assertFalse(spoken.contains("Home News Sport"));
+        assertFalse(spoken.contains("Privacy"));
+    }
+
+    @Test
+    void dropsCitationMarkersFromSelections() {
+        capture.selection = "Free content is free.[5] It is open.[citation needed]";
+        loop.handle(Command.READ_SELECTION);
+        assertEquals(List.of("Free content is free. It is open."), speech.spoken);
     }
 
     @Test
@@ -103,9 +124,11 @@ class CommandLoopTest {
             return selection;
         }
 
+        String pageHtml;
+
         @Override
-        public String captureAll() {
-            return page;
+        public CapturedText captureAll() {
+            return new CapturedText(page, pageHtml);
         }
     }
 
