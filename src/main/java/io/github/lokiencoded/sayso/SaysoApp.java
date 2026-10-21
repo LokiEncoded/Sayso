@@ -4,10 +4,11 @@ import io.github.lokiencoded.sayso.capture.ClipboardTextCapture;
 import io.github.lokiencoded.sayso.capture.TextCapture;
 import io.github.lokiencoded.sayso.core.Command;
 import io.github.lokiencoded.sayso.core.CommandLoop;
+import io.github.lokiencoded.sayso.core.SaysoPaths;
 import io.github.lokiencoded.sayso.core.Settings;
 import io.github.lokiencoded.sayso.hotkey.HotkeyListener;
 import io.github.lokiencoded.sayso.speech.SpeechEngine;
-import io.github.lokiencoded.sayso.speech.WindowsSapiSpeechEngine;
+import io.github.lokiencoded.sayso.speech.SpeechEngines;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,14 +29,14 @@ public final class SaysoApp {
 
     public static void main(String[] args) throws Exception {
         if (!System.getProperty("os.name", "").toLowerCase().contains("win")) {
-            System.err.println("Sayso v0.1 runs on Windows only for now.");
+            System.err.println("Sayso runs on Windows only for now.");
             System.exit(1);
         }
 
         BlockingQueue<Command> commands = new LinkedBlockingQueue<>();
         HotkeyListener hotkeys = new HotkeyListener(commands::offer);
         TextCapture capture = new ClipboardTextCapture(hotkeys::modifiersHeld);
-        SpeechEngine speech = new WindowsSapiSpeechEngine();
+        SpeechEngine speech = SpeechEngines.best(SaysoPaths.fromEnvironment());
         Settings settings = new Settings();
 
         hotkeys.start();
@@ -54,10 +55,10 @@ public final class SaysoApp {
     private static void printShortcuts() {
         System.out.println("""
 
-                Sayso v0.1 is running. Hold Ctrl+Alt, then press:
-                  R   read the selected text
-                  P   read the whole page or window
-                  S   stop reading
+                Sayso v0.2 is running. Hold Ctrl+Alt, then press:
+                  R   read the selected text (press again to stop)
+                  P   read the whole page or window (press again to stop)
+                  X   stop reading
                   .   faster
                   ,   slower
                   V   next voice

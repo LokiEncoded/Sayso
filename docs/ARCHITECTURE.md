@@ -13,7 +13,7 @@ Sayso is four small parts connected by interfaces, with one class that wires the
 | HotkeyListener | `hotkey` | Turns system-wide key presses into `Command`s | JNativeHook |
 | CommandLoop | `core` | Takes one command at a time and carries it out | Plain Java, single thread |
 | TextCapture | `capture` | Gets text from the app in front | Clipboard trick (`ClipboardTextCapture`) |
-| SpeechEngine | `speech` | Speaks text, stops, lists voices | Windows System.Speech via PowerShell |
+| SpeechEngine | `speech` | Speaks text, stops, lists voices | `PiperSpeechEngine` (neural, offline) when installed, else `WindowsSapiSpeechEngine`; chosen by `SpeechEngines.best()` |
 
 ## Rules we follow
 
@@ -26,6 +26,6 @@ Sayso is four small parts connected by interfaces, with one class that wires the
 
 | Version | Addition |
 | --- | --- |
-| v0.2 | Neural voices (`SpeechEngine`), UI Automation reading (`TextCapture`), saved settings |
+| v0.2 | ~~Neural voices (`SpeechEngine`)~~ done, UI Automation reading (`TextCapture`), saved settings |
 | v0.3 | Ask: speech-to-text plus an AI model, answers spoken back |
 | v0.4 | Reply: speak a response, cleaned up and pasted into the text box (the full loop) |

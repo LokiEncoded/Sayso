@@ -12,7 +12,8 @@ public final class KeyBindings {
     private static final Map<Integer, Command> BINDINGS = Map.of(
             NativeKeyEvent.VC_R, Command.READ_SELECTION,
             NativeKeyEvent.VC_P, Command.READ_PAGE,
-            NativeKeyEvent.VC_S, Command.STOP,
+            // Not S: Ctrl+Alt+S is taken by HP laptops (System Information) and IntelliJ (Settings).
+            NativeKeyEvent.VC_X, Command.STOP,
             NativeKeyEvent.VC_PERIOD, Command.FASTER,
             NativeKeyEvent.VC_COMMA, Command.SLOWER,
             NativeKeyEvent.VC_V, Command.NEXT_VOICE,

@@ -31,7 +31,13 @@ class KeyBindingsTest {
     }
 
     @Test
-    void ignoresKeysThatAreNotBound() {
-        assertTrue(KeyBindings.lookup(NativeKeyEvent.VC_X, true, true).isEmpty());
+    void ctrlAltXStops() {
+        assertEquals(Optional.of(Command.STOP), KeyBindings.lookup(NativeKeyEvent.VC_X, true, true));
+    }
+
+    /** Ctrl+Alt+S belongs to HP System Information and IntelliJ Settings, so we leave it alone. */
+    @Test
+    void ctrlAltSIsNotOurs() {
+        assertTrue(KeyBindings.lookup(NativeKeyEvent.VC_S, true, true).isEmpty());
     }
 }

@@ -20,6 +20,9 @@ public interface SpeechEngine {
     /** Stops speaking immediately. Safe to call when nothing is playing. */
     void stop();
 
+    /** True while something is still being spoken. */
+    boolean isSpeaking();
+
     /** Names of the installed voices, in a stable order. */
     List<String> voices();
 }
