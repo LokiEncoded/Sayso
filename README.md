@@ -1,10 +1,14 @@
 # Sayso
 
+[![Build](https://github.com/LokiEncoded/Sayso/actions/workflows/build.yml/badge.svg)](https://github.com/LokiEncoded/Sayso/actions/workflows/build.yml)
+
 Reads anything on your screen aloud with one shortcut. No copying, no switching apps.
 
 Sayso is the other half of the voice loop: tools like Wispr Flow turn your voice into text in place; Sayso turns on-screen text into voice in place, and will speak for you too.
 
-**Status:** v0.2, natural offline voices. Windows only.
+**Status:** v0.2: natural offline voices, toggle shortcuts, article-only page reading. Windows only.
+
+Contributing or picking this up again? See [docs/WORKFLOW.md](docs/WORKFLOW.md) for branches, commits and the PR flow.
 
 ## Natural voices (recommended)
 
@@ -54,8 +58,10 @@ java -jar target/sayso.jar
 sayso/
 ├── pom.xml                         Maven build: dependencies, Java 21, runnable jar
 ├── scripts/install-voices.ps1      Downloads Piper and natural voices
+├── .github/workflows/build.yml     CI: builds and tests every push and PR on Windows
 ├── docs/
 │   ├── ARCHITECTURE.md             How the parts fit together
+│   ├── WORKFLOW.md                 Branches, commits and the PR flow
 │   └── devlog/                     What was built at each step and why
 └── src/
     ├── main/java/io/github/lokiencoded/sayso/
@@ -79,9 +85,9 @@ sayso/
 
 Speech runs outside Java: [Piper](https://github.com/rhasspy/piper) (MIT) for natural voices, installed by `scripts/install-voices.ps1`, or Windows' built-in engine (System.Speech, via PowerShell) as a fallback.
 
-## Known limits (next up)
+## Known limits
 
-- "Read page" reads just the article in browsers (title, body, headings), using the HTML they put on the clipboard. Apps that copy only plain text are read in full.
+- In browsers, "Read page" reads just the article (title, body, headings). Apps that copy only plain text are read in full.
 - "Read page" uses Ctrl+A, so the page stays highlighted afterwards; inside a text box it selects only that box.
 - The shortcut also reaches the app you are in; harmless in most apps.
-- Settings reset each time the app starts.
+- Settings (voice, speed) reset each time the app starts, and shortcuts can't be changed yet. Next up.
