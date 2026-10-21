@@ -4,7 +4,17 @@ Reads anything on your screen aloud with one shortcut. No copying, no switching 
 
 Sayso is the other half of the voice loop: tools like Wispr Flow turn your voice into text in place; Sayso turns on-screen text into voice in place, and will speak for you too.
 
-**Status:** v0.1, Stage 1 prototype. Windows only.
+**Status:** v0.2, natural offline voices. Windows only.
+
+## Natural voices (recommended)
+
+Sayso speaks with [Piper](https://github.com/rhasspy/piper) neural voices: offline, free, and far more natural than the built-in Windows voices. Install them once:
+
+```
+powershell -ExecutionPolicy Bypass -File scripts\install-voices.ps1
+```
+
+This downloads Piper and three English voices (about 200 MB) into `%USERPROFILE%\.sayso`. Without them, Sayso falls back to the built-in Windows voices.
 
 ## Shortcuts
 
@@ -19,7 +29,7 @@ Hold **Ctrl+Alt**, then press:
 | V | Next voice |
 | Q | Quit |
 
-More voices: Windows Settings > Time & language > Speech > Add voices.
+More voices: add any `.onnx` + `.onnx.json` pair from [piper-voices](https://huggingface.co/rhasspy/piper-voices) to `%USERPROFILE%\.sayso\voices`. (Using Windows voices instead? Windows Settings > Time & language > Speech > Add voices.)
 
 ## Run it in IntelliJ IDEA
 
@@ -43,6 +53,7 @@ java -jar target/sayso.jar
 ```
 sayso/
 ├── pom.xml                         Maven build: dependencies, Java 21, runnable jar
+├── scripts/install-voices.ps1      Downloads Piper and natural voices
 ├── docs/
 │   ├── ARCHITECTURE.md             How the parts fit together
 │   └── devlog/                     What was built at each step and why
@@ -65,11 +76,10 @@ sayso/
 | SLF4J + Logback | Logging |
 | JUnit 5 | Tests |
 
-Speech uses Windows' built-in engine (System.Speech, via PowerShell), so there is nothing extra to install.
+Speech runs outside Java: [Piper](https://github.com/rhasspy/piper) (MIT) for natural voices, installed by `scripts/install-voices.ps1`, or Windows' built-in engine (System.Speech, via PowerShell) as a fallback.
 
-## Known limits (v0.2 work)
+## Known limits (next up)
 
-- Built-in Windows voices sound robotic, and each sentence takes a moment to start.
 - "Read page" uses Ctrl+A, which picks up menus and clutter; inside a text box it selects only that box.
 - The shortcut also reaches the app you are in; harmless in most apps.
 - Settings reset each time the app starts.
