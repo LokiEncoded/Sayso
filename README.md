@@ -63,6 +63,7 @@ sayso/
     │   ├── core/                   Commands, settings, the command loop
     │   ├── hotkey/                 System-wide keyboard shortcuts
     │   ├── capture/                Getting text from other apps
+    │   ├── extract/                Finding the article in a copied page
     │   └── speech/                 Turning text into speech
     ├── main/resources/logback.xml  Log format
     └── test/java/...               Unit tests, mirroring the main packages
@@ -80,6 +81,7 @@ Speech runs outside Java: [Piper](https://github.com/rhasspy/piper) (MIT) for na
 
 ## Known limits (next up)
 
-- "Read page" uses Ctrl+A, which picks up menus and clutter; inside a text box it selects only that box.
+- "Read page" reads just the article in browsers (title, body, headings), using the HTML they put on the clipboard. Apps that copy only plain text are read in full.
+- "Read page" uses Ctrl+A, so the page stays highlighted afterwards; inside a text box it selects only that box.
 - The shortcut also reaches the app you are in; harmless in most apps.
 - Settings reset each time the app starts.
