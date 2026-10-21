@@ -19,6 +19,7 @@
 
         <!-- Dependency versions live here so upgrades are one-line changes -->
         <jnativehook.version>2.2.2</jnativehook.version>
+        <jna.version>5.17.0</jna.version>
         <slf4j.version>2.0.17</slf4j.version>
         <logback.version>1.5.18</logback.version>
         <junit.version>5.11.4</junit.version>
@@ -30,6 +31,13 @@
             <groupId>com.github.kwhat</groupId>
             <artifactId>jnativehook</artifactId>
             <version>${jnativehook.version}</version>
+        </dependency>
+
+        <!-- Calls Windows APIs from Java (used to read the real state of Ctrl/Alt) -->
+        <dependency>
+            <groupId>net.java.dev.jna</groupId>
+            <artifactId>jna-platform</artifactId>
+            <version>${jna.version}</version>
         </dependency>
 
         <!-- Logging: SLF4J is the API we code against, Logback prints it -->

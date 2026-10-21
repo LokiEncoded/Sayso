@@ -8,8 +8,10 @@ import io.github.lokiencoded.sayso.core.Command;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 
@@ -23,12 +25,20 @@ public final class HotkeyListener implements NativeKeyListener {
     private static final Logger log = LoggerFactory.getLogger(HotkeyListener.class);
 
     private final Consumer<Command> sink;
-    private final Set<Integer> keysDown = ConcurrentHashMap.newKeySet();
-    private volatile boolean ctrlDown;
-    private volatile boolean altDown;
+    private final BooleanSupplier ctrlAndAltReallyDown;
+    private final BooleanSupplier ctrlOrAltReallyDown;
+    private final Set<Integer> firedKeys = ConcurrentHashMap.newKeySet();
 
     public HotkeyListener(Consumer<Command> sink) {
+        this(sink, Modifiers::windowsCtrlAndAltDown, Modifiers::windowsCtrlOrAltDown);
+    }
+
+    /** For tests: lets us fake what Windows reports about Ctrl and Alt. */
+    HotkeyListener(Consumer<Command> sink, BooleanSupplier ctrlAndAltReallyDown,
+                   BooleanSupplier ctrlOrAltReallyDown) {
         this.sink = sink;
+        this.ctrlAndAltReallyDown = ctrlAndAltReallyDown;
+        this.ctrlOrAltReallyDown = ctrlOrAltReallyDown;
     }
 
     public void start() throws NativeHookException {
@@ -52,27 +62,19 @@ public final class HotkeyListener implements NativeKeyListener {
         }
     }
 
-    /** True while the user is still holding Ctrl or Alt. */
+    /** True while the user is physically holding Ctrl or Alt (asked from Windows, never guessed). */
     public boolean modifiersHeld() {
-        return ctrlDown || altDown;
+        return ctrlOrAltReallyDown.getAsBoolean();
     }
 
     @Override
     public void nativeKeyPressed(NativeKeyEvent event) {
-        int code = event.getKeyCode();
-        updateModifier(code, true);
-        // Holding a key repeats "pressed" events; act only on the first one.
-        if (!keysDown.add(code)) {
-            return;
-        }
-        KeyBindings.lookup(code, ctrlDown, altDown).ifPresent(sink);
+        onKeyPressed(event.getKeyCode(), event.getModifiers());
     }
 
     @Override
     public void nativeKeyReleased(NativeKeyEvent event) {
-        int code = event.getKeyCode();
-        updateModifier(code, false);
-        keysDown.remove(code);
+        firedKeys.remove(event.getKeyCode());
     }
 
     @Override
@@ -80,11 +82,23 @@ public final class HotkeyListener implements NativeKeyListener {
         // Not needed: we only care about presses and releases.
     }
 
-    private void updateModifier(int code, boolean down) {
-        if (code == NativeKeyEvent.VC_CONTROL) {
-            ctrlDown = down;
-        } else if (code == NativeKeyEvent.VC_ALT) {
-            altDown = down;
+    /** The decision logic, separate from JNativeHook's event class so it can be unit tested. */
+    void onKeyPressed(int keyCode, int modifierMask) {
+        Optional<Command> command = KeyBindings.lookup(
+                keyCode, Modifiers.ctrl(modifierMask), Modifiers.alt(modifierMask));
+        if (command.isEmpty()) {
+            return;
+        }
+        // The event says Ctrl+Alt+key. Double-check with Windows, because event-based
+        // modifier tracking can get stuck after a missed key-up.
+        if (!ctrlAndAltReallyDown.getAsBoolean()) {
+            firedKeys.clear();
+            log.debug("Ignored {}: Windows reports Ctrl+Alt are not both held", command.get());
+            return;
+        }
+        // Holding a key repeats "pressed" events; act only on the first one.
+        if (firedKeys.add(keyCode)) {
+            sink.accept(command.get());
         }
     }
 }
