@@ -65,6 +65,24 @@ class CommandLoopTest {
     }
 
     @Test
+    void readShortcutStopsWhenAlreadySpeaking() {
+        capture.selection = "Hello world";
+        speech.speaking = true;
+        loop.handle(Command.READ_SELECTION);
+        assertEquals(1, speech.stops);
+        assertTrue(speech.spoken.isEmpty());
+    }
+
+    @Test
+    void pageShortcutStopsWhenAlreadySpeaking() {
+        capture.page = "The whole page";
+        speech.speaking = true;
+        loop.handle(Command.READ_PAGE);
+        assertEquals(1, speech.stops);
+        assertTrue(speech.spoken.isEmpty());
+    }
+
+    @Test
     void stopStopsSpeech() {
         assertTrue(loop.handle(Command.STOP));
         assertEquals(1, speech.stops);
@@ -97,6 +115,12 @@ class CommandLoopTest {
         int stops;
         int lastRate;
         String lastVoice;
+        boolean speaking;
+
+        @Override
+        public boolean isSpeaking() {
+            return speaking;
+        }
 
         @Override
         public void speak(String text, int rate, String voiceName) {

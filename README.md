@@ -22,9 +22,9 @@ Hold **Ctrl+Alt**, then press:
 
 | Key | Action |
 | --- | --- |
-| R | Read the selected text |
-| P | Read the whole page or window |
-| S | Stop |
+| R | Read the selected text; press again to stop |
+| P | Read the whole page or window; press again to stop |
+| X | Stop |
 | . / , | Faster / slower |
 | V | Next voice |
 | Q | Quit |

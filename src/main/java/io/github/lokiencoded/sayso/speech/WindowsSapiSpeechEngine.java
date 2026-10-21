@@ -57,6 +57,11 @@ public final class WindowsSapiSpeechEngine implements SpeechEngine {
     }
 
     @Override
+    public synchronized boolean isSpeaking() {
+        return current != null && current.isAlive();
+    }
+
+    @Override
     public synchronized List<String> voices() {
         if (voices == null) {
             voices = loadVoices();

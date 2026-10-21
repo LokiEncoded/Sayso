@@ -55,8 +55,17 @@ public final class CommandLoop implements Runnable {
     boolean handle(Command command) {
         log.debug("Handling {}", command);
         switch (command) {
-            case READ_SELECTION -> speakOr(capture.captureSelection(), "Nothing is selected.");
-            case READ_PAGE -> speakOr(capture.captureAll(), "I couldn't find any text here.");
+            // The read shortcuts toggle: pressed while speaking, they stop instead.
+            case READ_SELECTION -> {
+                if (!stopIfSpeaking()) {
+                    speakOr(capture.captureSelection(), "Nothing is selected.");
+                }
+            }
+            case READ_PAGE -> {
+                if (!stopIfSpeaking()) {
+                    speakOr(capture.captureAll(), "I couldn't find any text here.");
+                }
+            }
             case STOP -> speech.stop();
             case FASTER -> changeRate(+1);
             case SLOWER -> changeRate(-1);
@@ -67,6 +76,15 @@ public final class CommandLoop implements Runnable {
             }
         }
         return true;
+    }
+
+    /** Stops speech if any is playing. Returns true if it did. */
+    private boolean stopIfSpeaking() {
+        if (speech.isSpeaking()) {
+            speech.stop();
+            return true;
+        }
+        return false;
     }
 
     private void speakOr(String text, String fallback) {

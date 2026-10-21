@@ -22,7 +22,7 @@ class HotkeyListenerTest {
 
     @Test
     void firesWhenCtrlAltReallyHeld() {
-        listener.onKeyPressed(NativeKeyEvent.VC_S, CTRL_ALT);
+        listener.onKeyPressed(NativeKeyEvent.VC_X, CTRL_ALT);
         assertEquals(List.of(Command.STOP), fired);
     }
 

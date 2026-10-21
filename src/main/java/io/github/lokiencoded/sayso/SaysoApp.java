@@ -56,9 +56,9 @@ public final class SaysoApp {
         System.out.println("""
 
                 Sayso v0.2 is running. Hold Ctrl+Alt, then press:
-                  R   read the selected text
-                  P   read the whole page or window
-                  S   stop reading
+                  R   read the selected text (press again to stop)
+                  P   read the whole page or window (press again to stop)
+                  X   stop reading
                   .   faster
                   ,   slower
                   V   next voice

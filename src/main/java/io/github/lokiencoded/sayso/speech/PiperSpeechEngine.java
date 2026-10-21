@@ -82,6 +82,11 @@ public final class PiperSpeechEngine implements SpeechEngine {
     }
 
     @Override
+    public synchronized boolean isSpeaking() {
+        return current != null && current.isAlive();
+    }
+
+    @Override
     public List<String> voices() {
         return voices.stream().map(PiperVoice::name).toList();
     }
