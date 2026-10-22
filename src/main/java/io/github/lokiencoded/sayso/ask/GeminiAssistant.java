@@ -46,14 +46,19 @@ public final class GeminiAssistant implements Assistant {
             - If the audio has no clear question, say so in one short sentence.
             """;
 
-    /** Tries per model before moving on; Google's "high demand" spikes usually pass within seconds. */
-    static final int ATTEMPTS_PER_MODEL = 2;
+    /**
+     * The first try gets a short timeout: an overloaded model often just hangs, and a voice
+     * assistant that is silent for half a minute feels broken. Later tries get longer.
+     */
+    static final Duration FIRST_TRY_TIMEOUT = Duration.ofSeconds(12);
+    static final Duration LATER_TRY_TIMEOUT = Duration.ofSeconds(25);
 
     private final HttpClient http;
     private final String baseUrl;
     private final String apiKey;
     private final List<String> models;
     private final long retryDelayMillis;
+    private final Duration firstTryTimeout;
 
     /**
      * @param model         the model to ask first
@@ -65,16 +70,18 @@ public final class GeminiAssistant implements Assistant {
         this(HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_1_1)
                 .connectTimeout(Duration.ofSeconds(10))
-                .build(), GOOGLE, apiKey, modelsToTry(model, fallbackModel), 1_000);
+                .build(), GOOGLE, apiKey, modelsToTry(model, fallbackModel), 1_000, FIRST_TRY_TIMEOUT);
     }
 
     /** For tests: talk to a fake server instead of Google, without real waiting. */
-    GeminiAssistant(HttpClient http, String baseUrl, String apiKey, List<String> models, long retryDelayMillis) {
+    GeminiAssistant(HttpClient http, String baseUrl, String apiKey, List<String> models,
+                    long retryDelayMillis, Duration firstTryTimeout) {
         this.http = http;
         this.baseUrl = baseUrl;
         this.apiKey = apiKey;
         this.models = List.copyOf(models);
         this.retryDelayMillis = retryDelayMillis;
+        this.firstTryTimeout = firstTryTimeout;
     }
 
     static List<String> modelsToTry(String model, String fallbackModel) {
@@ -86,36 +93,44 @@ public final class GeminiAssistant implements Assistant {
     }
 
     /**
-     * Asks each model in turn. Temporary failures (overloaded, rate-limited, timed out) are
-     * retried after a short pause and then handed to the fallback model; anything else,
-     * like a bad API key, fails at once because retrying can't help.
+     * The order of tries: the main model (short timeout), then the fallback, then the main
+     * model once more after a pause. Temporary failures (overloaded, rate-limited, timed out)
+     * move on to the next try; anything else, like a bad API key, fails at once.
      */
+    static List<String> tryOrder(List<String> models) {
+        List<String> order = new ArrayList<>(models);
+        order.add(models.getFirst());
+        return order;
+    }
+
     @Override
     public String answer(byte[] questionWav, String selectedText) throws AskException {
         String body = requestBody(questionWav, selectedText);
+        List<String> order = tryOrder(models);
         AskException lastProblem = null;
-        for (String model : models) {
-            for (int attempt = 1; attempt <= ATTEMPTS_PER_MODEL; attempt++) {
-                try {
-                    return ask(model, body);
-                } catch (AskException e) {
-                    if (!e.isTemporary()) {
-                        throw e;
-                    }
-                    lastProblem = e;
-                    if (attempt < ATTEMPTS_PER_MODEL) {
-                        pause(retryDelayMillis * attempt);
-                    }
+        for (int i = 0; i < order.size(); i++) {
+            if (i == order.size() - 1) {
+                pause(retryDelayMillis);   // the last try is a retry: give a demand spike a moment to pass
+            }
+            Duration timeout = i == 0 ? firstTryTimeout : LATER_TRY_TIMEOUT;
+            try {
+                return ask(order.get(i), body, timeout);
+            } catch (AskException e) {
+                if (!e.isTemporary()) {
+                    throw e;
+                }
+                lastProblem = e;
+                if (i < order.size() - 1) {
+                    log.info("{} is unavailable right now; trying {}", order.get(i), order.get(i + 1));
                 }
             }
-            log.info("{} is unavailable right now; trying the next model", model);
         }
         throw lastProblem;
     }
 
-    private String ask(String model, String body) throws AskException {
+    private String ask(String model, String body, Duration timeout) throws AskException {
         HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + "/v1beta/models/" + model + ":generateContent"))
-                .timeout(Duration.ofSeconds(30))
+                .timeout(timeout)
                 .header("Content-Type", "application/json")
                 .header("x-goog-api-key", apiKey)
                 .POST(HttpRequest.BodyPublishers.ofString(body))

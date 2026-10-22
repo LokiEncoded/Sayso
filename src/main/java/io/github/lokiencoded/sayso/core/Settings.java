@@ -20,11 +20,17 @@ public final class Settings {
     /** Defaults chosen to avoid common clashes (Ctrl+Alt+S is HP System Information and IntelliJ Settings). */
     public static final Map<Command, String> DEFAULT_SHORTCUTS = defaultShortcuts();
 
-    /** Always points at Google's current Flash model, so renames and deprecations don't break Ask. */
-    public static final String DEFAULT_GEMINI_MODEL = "gemini-flash-latest";
+    /**
+     * Fast and light: answered in about 2 seconds in testing, which is what a voice assistant needs
+     * for short spoken answers.
+     */
+    public static final String DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite";
 
-    /** A lighter stable model with its own capacity, used when the main one is overloaded. */
-    public static final String DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-3.5-flash-lite";
+    /**
+     * The bigger model as backup. The "latest" alias always points at Google's current Flash model,
+     * so renames and deprecations never leave Sayso without a working model.
+     */
+    public static final String DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-flash-latest";
 
     private int rate = DEFAULT_RATE;
     private String voiceName;   // null means "the first installed voice"

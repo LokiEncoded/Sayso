@@ -148,9 +148,11 @@ public final class SettingsFile {
         out.append(GEMINI_API_KEY).append('=')
                 .append(escape(settings.geminiApiKey() == null ? "" : settings.geminiApiKey())).append('\n');
         out.append("# Model: ").append(Settings.DEFAULT_GEMINI_MODEL)
-                .append(" always uses Google's current Flash model.\n");
+                .append(" is fast, for short spoken answers.\n");
         out.append(GEMINI_MODEL).append('=').append(escape(settings.geminiModel())).append('\n');
-        out.append("# Fallback: used when the model above is overloaded. Leave blank to turn off.\n");
+        out.append("# Fallback: used when the model above is slow or overloaded. ")
+                .append(Settings.DEFAULT_GEMINI_FALLBACK_MODEL)
+                .append(" always points at Google's current Flash model. Leave blank to turn off.\n");
         out.append(GEMINI_FALLBACK_MODEL).append('=')
                 .append(escape(settings.geminiFallbackModel() == null ? "" : settings.geminiFallbackModel()))
                 .append("\n\n");

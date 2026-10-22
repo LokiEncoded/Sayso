@@ -10,9 +10,11 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 
@@ -96,7 +98,7 @@ class GeminiAssistantTest {
         try {
             GeminiAssistant gemini = new GeminiAssistant(HttpClient.newHttpClient(),
                     "http://localhost:" + server.getAddress().getPort(), "test-key",
-                    List.of("gemini-flash-latest"), 0);
+                    List.of("gemini-flash-latest"), 0, Duration.ofSeconds(5));
 
             String answer = gemini.answer(AUDIO, "Some selected text");
 
@@ -118,7 +120,7 @@ class GeminiAssistantTest {
         try {
             HttpClient http1 = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build();
             GeminiAssistant gemini = new GeminiAssistant(http1,
-                    "http://localhost:" + server.getAddress().getPort(), "k", List.of("m"), 0);
+                    "http://localhost:" + server.getAddress().getPort(), "k", List.of("m"), 0, Duration.ofSeconds(5));
             byte[] tenSeconds = new byte[320_000];
 
             assertEquals("ok", gemini.answer(tenSeconds, ""));
@@ -134,7 +136,7 @@ class GeminiAssistantTest {
                 new AtomicReference<>(), new AtomicReference<>(), new AtomicReference<>());
         try {
             GeminiAssistant gemini = new GeminiAssistant(HttpClient.newHttpClient(),
-                    "http://localhost:" + server.getAddress().getPort(), "k", List.of("m"), 0);
+                    "http://localhost:" + server.getAddress().getPort(), "k", List.of("m"), 0, Duration.ofSeconds(5));
             AskException e = assertThrows(AskException.class, () -> gemini.answer(AUDIO, ""));
             assertTrue(e.getMessage().contains("usage limit"), e.getMessage());
             assertTrue(e.isTemporary());
@@ -148,12 +150,12 @@ class GeminiAssistantTest {
 
     /** The real problem seen on the first day: a 503 "high demand" spike that passes quickly. */
     @Test
-    void retriesWhenTheModelIsBrieflyOverloaded() throws Exception {
+    void anOverloadedModelHandsOverToTheFallbackAtOnce() throws Exception {
         List<String> calls = new ArrayList<>();
-        HttpServer server = scriptedGemini(calls, (model, attempt) -> attempt == 1 ? 503 : 200);
+        HttpServer server = scriptedGemini(calls, (model, attempt) -> model.equals("main") && attempt == 1 ? 503 : 200);
         try {
-            assertEquals("Answer from main", gemini(server, "main", "lite").answer(AUDIO, ""));
-            assertEquals(List.of("main", "main"), calls);
+            assertEquals("Answer from lite", gemini(server, "main", "lite").answer(AUDIO, ""));
+            assertEquals(List.of("main", "lite"), calls);   // straight to the fallback, no waiting
         } finally {
             server.stop(0);
         }
@@ -165,7 +167,7 @@ class GeminiAssistantTest {
         HttpServer server = scriptedGemini(calls, (model, attempt) -> model.equals("main") ? 503 : 200);
         try {
             assertEquals("Answer from lite", gemini(server, "main", "lite").answer(AUDIO, ""));
-            assertEquals(List.of("main", "main", "lite"), calls);
+            assertEquals(List.of("main", "lite"), calls);
         } finally {
             server.stop(0);
         }
@@ -191,9 +193,51 @@ class GeminiAssistantTest {
         try {
             AskException e = assertThrows(AskException.class, () -> gemini(server, "main", "lite").answer(AUDIO, ""));
             assertTrue(e.getMessage().contains("very busy"), e.getMessage());
-            assertEquals(4, calls.size());   // two tries each, then give up
+            assertEquals(List.of("main", "lite", "main"), calls);   // main, fallback, one retry, then give up
         } finally {
             server.stop(0);
+        }
+    }
+
+    @Test
+    void retriesTheMainModelWhenThereIsNoFallback() throws Exception {
+        List<String> calls = new ArrayList<>();
+        HttpServer server = scriptedGemini(calls, (model, attempt) -> attempt == 1 ? 503 : 200);
+        try {
+            assertEquals("Answer from main", gemini(server, "main", null).answer(AUDIO, ""));
+            assertEquals(List.of("main", "main"), calls);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    /** Seen on the laptop: the main model hung for 30 s before saying it was overloaded. */
+    @Test
+    void aHangingModelIsAbandonedQuickly() throws Exception {
+        List<String> calls = new ArrayList<>();
+        HttpServer server = scriptedGemini(calls, (model, attempt) -> {
+            if (model.equals("main")) {
+                pauseFor(3_000);   // hangs far longer than the first-try timeout below
+            }
+            return 200;
+        });
+        try {
+            GeminiAssistant gemini = new GeminiAssistant(HttpClient.newHttpClient(),
+                    "http://localhost:" + server.getAddress().getPort(), "k",
+                    List.of("main", "lite"), 0, Duration.ofMillis(300));
+            long started = System.nanoTime();
+            assertEquals("Answer from lite", gemini.answer(AUDIO, ""));
+            assertTrue((System.nanoTime() - started) / 1_000_000 < 2_500, "should not wait for the hung model");
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    private static void pauseFor(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -206,7 +250,7 @@ class GeminiAssistantTest {
 
     private static GeminiAssistant gemini(HttpServer server, String model, String fallback) {
         return new GeminiAssistant(HttpClient.newHttpClient(), "http://localhost:" + server.getAddress().getPort(),
-                "k", GeminiAssistant.modelsToTry(model, fallback), 0);
+                "k", GeminiAssistant.modelsToTry(model, fallback), 0, Duration.ofSeconds(5));
     }
 
     /** A fake Gemini whose status code depends on the model asked and how many times it was asked. */
@@ -234,6 +278,7 @@ class GeminiAssistantTest {
                 out.write(bytes);
             }
         });
+        server.setExecutor(Executors.newCachedThreadPool());   // a hung request must not block the next one
         server.start();
         return server;
     }
