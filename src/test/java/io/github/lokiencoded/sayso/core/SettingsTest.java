@@ -2,9 +2,11 @@ package io.github.lokiencoded.sayso.core;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+import java.util.Optional;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class SettingsTest {
 
@@ -23,21 +25,40 @@ class SettingsTest {
     }
 
     @Test
-    void startsWithDefaultVoice() {
+    void startsWithDefaultVoiceAndShortcuts() {
         Settings settings = new Settings();
         assertNull(settings.voiceName());
-        assertEquals(0, settings.nextVoiceIndex(3));
+        assertEquals("Ctrl+Alt+R", settings.shortcut(Command.READ_SELECTION).label());
+        assertEquals(Command.values().length, settings.shortcuts().size());
     }
 
     @Test
-    void voiceIndexWrapsAroundAtTheEnd() {
+    void nextVoiceStartsAtTheFirstAndWraps() {
         Settings settings = new Settings();
-        settings.selectVoice(2, "Voice C");
-        assertEquals(0, settings.nextVoiceIndex(3));
+        List<String> voices = List.of("alba", "amy", "lessac");
+        assertEquals(Optional.of("alba"), settings.nextVoice(voices));
+        settings.setVoiceName("lessac");
+        assertEquals(Optional.of("alba"), settings.nextVoice(voices));
+        settings.setVoiceName("alba");
+        assertEquals(Optional.of("amy"), settings.nextVoice(voices));
     }
 
     @Test
-    void rejectsEmptyVoiceList() {
-        assertThrows(IllegalArgumentException.class, () -> new Settings().nextVoiceIndex(0));
+    void savedVoiceThatIsNoLongerInstalledStartsOver() {
+        Settings settings = new Settings();
+        settings.setVoiceName("uninstalled-voice");
+        assertEquals(Optional.of("alba"), settings.nextVoice(List.of("alba", "amy")));
+    }
+
+    @Test
+    void noVoicesMeansNoNextVoice() {
+        assertEquals(Optional.empty(), new Settings().nextVoice(List.of()));
+    }
+
+    @Test
+    void blankVoiceNameMeansDefault() {
+        Settings settings = new Settings();
+        settings.setVoiceName("  ");
+        assertNull(settings.voiceName());
     }
 }

@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
+import java.util.function.Consumer;
 
 /**
  * Takes commands off the queue one at a time and carries them out.
@@ -23,13 +24,19 @@ public final class CommandLoop implements Runnable {
     private final TextCapture capture;
     private final SpeechEngine speech;
     private final Settings settings;
+    private final Consumer<Settings> saveSettings;
 
+    /**
+     * @param saveSettings called whenever the user changes voice or speed, so the
+     *                     change survives a restart (SettingsFile::save in the app)
+     */
     public CommandLoop(BlockingQueue<Command> commands, TextCapture capture,
-                       SpeechEngine speech, Settings settings) {
+                       SpeechEngine speech, Settings settings, Consumer<Settings> saveSettings) {
         this.commands = commands;
         this.capture = capture;
         this.speech = speech;
         this.settings = settings;
+        this.saveSettings = saveSettings;
     }
 
     @Override
@@ -110,6 +117,7 @@ public final class CommandLoop implements Runnable {
 
     private void changeRate(int step) {
         settings.changeRate(step);
+        saveSettings.accept(settings);
         say("Speed " + settings.rate());
     }
 
@@ -119,8 +127,8 @@ public final class CommandLoop implements Runnable {
             say("No other voices are installed.");
             return;
         }
-        int index = settings.nextVoiceIndex(voices.size());
-        settings.selectVoice(index, voices.get(index));
+        settings.nextVoice(voices).ifPresent(settings::setVoiceName);
+        saveSettings.accept(settings);
         log.info("Voice: {}", settings.voiceName());
         say("This is my new voice.");
     }

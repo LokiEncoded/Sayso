@@ -4,6 +4,7 @@ import com.github.kwhat.jnativehook.GlobalScreen;
 import com.github.kwhat.jnativehook.NativeHookException;
 import com.github.kwhat.jnativehook.keyboard.NativeKeyEvent;
 import com.github.kwhat.jnativehook.keyboard.NativeKeyListener;
+import io.github.lokiencoded.sayso.config.Modifier;
 import io.github.lokiencoded.sayso.core.Command;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,8 +12,8 @@ import org.slf4j.LoggerFactory;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 
 /**
@@ -24,21 +25,20 @@ public final class HotkeyListener implements NativeKeyListener {
 
     private static final Logger log = LoggerFactory.getLogger(HotkeyListener.class);
 
+    private final KeyBindings bindings;
     private final Consumer<Command> sink;
-    private final BooleanSupplier ctrlAndAltReallyDown;
-    private final BooleanSupplier ctrlOrAltReallyDown;
+    private final Supplier<Set<Modifier>> reallyHeld;
     private final Set<Integer> firedKeys = ConcurrentHashMap.newKeySet();
 
-    public HotkeyListener(Consumer<Command> sink) {
-        this(sink, Modifiers::windowsCtrlAndAltDown, Modifiers::windowsCtrlOrAltDown);
+    public HotkeyListener(KeyBindings bindings, Consumer<Command> sink) {
+        this(bindings, sink, WindowsKeyState::heldModifiers);
     }
 
-    /** For tests: lets us fake what Windows reports about Ctrl and Alt. */
-    HotkeyListener(Consumer<Command> sink, BooleanSupplier ctrlAndAltReallyDown,
-                   BooleanSupplier ctrlOrAltReallyDown) {
+    /** For tests: lets us fake what Windows reports about the modifier keys. */
+    HotkeyListener(KeyBindings bindings, Consumer<Command> sink, Supplier<Set<Modifier>> reallyHeld) {
+        this.bindings = bindings;
         this.sink = sink;
-        this.ctrlAndAltReallyDown = ctrlAndAltReallyDown;
-        this.ctrlOrAltReallyDown = ctrlOrAltReallyDown;
+        this.reallyHeld = reallyHeld;
     }
 
     public void start() throws NativeHookException {
@@ -62,9 +62,9 @@ public final class HotkeyListener implements NativeKeyListener {
         }
     }
 
-    /** True while the user is physically holding Ctrl or Alt (asked from Windows, never guessed). */
+    /** True while the user is physically holding any modifier key (asked from Windows, never guessed). */
     public boolean modifiersHeld() {
-        return ctrlOrAltReallyDown.getAsBoolean();
+        return !reallyHeld.get().isEmpty();
     }
 
     @Override
@@ -84,16 +84,15 @@ public final class HotkeyListener implements NativeKeyListener {
 
     /** The decision logic, separate from JNativeHook's event class so it can be unit tested. */
     void onKeyPressed(int keyCode, int modifierMask) {
-        Optional<Command> command = KeyBindings.lookup(
-                keyCode, Modifiers.ctrl(modifierMask), Modifiers.alt(modifierMask));
+        Optional<Command> command = bindings.lookup(keyCode, Modifier.fromMask(modifierMask));
         if (command.isEmpty()) {
             return;
         }
-        // The event says Ctrl+Alt+key. Double-check with Windows, because event-based
-        // modifier tracking can get stuck after a missed key-up.
-        if (!ctrlAndAltReallyDown.getAsBoolean()) {
+        // The event says this is one of our shortcuts. Double-check with Windows, because
+        // event-based modifier tracking can get stuck after a missed key-up.
+        if (bindings.lookup(keyCode, reallyHeld.get()).isEmpty()) {
             firedKeys.clear();
-            log.debug("Ignored {}: Windows reports Ctrl+Alt are not both held", command.get());
+            log.debug("Ignored {}: Windows reports different modifier keys held", command.get());
             return;
         }
         // Holding a key repeats "pressed" events; act only on the first one.

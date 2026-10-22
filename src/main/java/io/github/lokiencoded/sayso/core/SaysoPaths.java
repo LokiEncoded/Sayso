@@ -9,6 +9,7 @@ import java.nio.file.Path;
  *
  * <pre>
  * ~/.sayso/
+ * ├── settings.properties    voice, speed and shortcuts (created on first run)
  * ├── piper/piper.exe        the neural speech engine
  * └── voices/*.onnx          voice models, each with a matching .onnx.json
  * </pre>
@@ -29,5 +30,9 @@ public record SaysoPaths(Path home) {
 
     public Path voicesDir() {
         return home.resolve("voices");
+    }
+
+    public Path settingsFile() {
+        return home.resolve("settings.properties");
     }
 }
