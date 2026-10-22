@@ -8,7 +8,7 @@ Ctrl+Alt+P read everything Ctrl+A selected: the site banner, menus, search box, 
 
 ## What we built
 
-`PageCleaner` works like a browser's Reader Mode. When you copy from a browser, the clipboard holds two versions: plain text, and HTML that still shows the page's structure. Sayso now reads the HTML version too, and:
+`PageCleaner` works like a browser's Reader Mode. When you copy from a browser, the clipboard holds two versions: plain text, and HTML that still shows the page's structure. Sayvoy now reads the HTML version too, and:
 
 1. **Removes page furniture:** `nav`, `aside`, `footer`, forms and buttons, ARIA roles like `navigation` and `banner`, elements whose class or id says `menu`, `sidebar`, `cookie`, `share`, `newsletter` and so on, plus Wikipedia's edit links, infoboxes and citation markers.
 2. **Finds the article:** first by tags sites use for it (`article`, `main`, `#mw-content-text`), then, for old pages built only from `div`s, by picking the block with the most paragraph text (a simplified version of Mozilla's Readability algorithm).

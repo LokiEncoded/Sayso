@@ -5,17 +5,17 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>io.github.lokiencoded</groupId>
-    <artifactId>sayso</artifactId>
+    <artifactId>sayvoy</artifactId>
     <version>0.4.0</version>
     <packaging>jar</packaging>
 
-    <name>Sayso</name>
+    <name>Sayvoy</name>
     <description>Reads anything on your screen aloud with one shortcut, and speaks for you.</description>
 
     <properties>
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <main.class>io.github.lokiencoded.sayso.SaysoApp</main.class>
+        <main.class>io.github.lokiencoded.sayvoy.SayvoyApp</main.class>
 
         <!-- Dependency versions live here so upgrades are one-line changes -->
         <jnativehook.version>2.2.2</jnativehook.version>
@@ -78,7 +78,7 @@
     </dependencies>
 
     <build>
-        <finalName>sayso</finalName>
+        <finalName>sayvoy</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -92,7 +92,7 @@
                 <version>3.5.2</version>
             </plugin>
 
-            <!-- Builds one runnable jar with all dependencies inside: target/sayso.jar -->
+            <!-- Builds one runnable jar with all dependencies inside: target/sayvoy.jar -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>

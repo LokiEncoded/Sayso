@@ -4,7 +4,7 @@
 
 ## What we built
 
-A second `SpeechEngine` that speaks with Piper's neural voices: offline, free, and far more natural than the built-in Windows voices. Sayso picks it automatically when Piper is installed, and falls back to Windows voices when it isn't.
+A second `SpeechEngine` that speaks with Piper's neural voices: offline, free, and far more natural than the built-in Windows voices. Sayvoy picks it automatically when Piper is installed, and falls back to Windows voices when it isn't.
 
 ## Decisions and why
 
@@ -14,7 +14,7 @@ A second `SpeechEngine` that speaks with Piper's neural voices: offline, free, a
 | The archived C++ build, not the newer "piper1-gpl" | The new project is GPL, which complicates a commercial product; the C++ build is MIT and works | Kokoro: newer and very good, but a heavier setup |
 | Run piper.exe as a separate process | No native code in our Java app; the same pattern as the Windows engine | Calling ONNX Runtime from Java directly: much more work |
 | Stream raw audio and play it as it arrives | First sentence starts in well under a second instead of waiting for the whole text | Write a WAV file, then play it: simpler, but slow on long pages |
-| Files in `~/.sayso` | One predictable place per user, outside the code; settings will live here too (v0.2.x) | Next to the jar: breaks when the jar moves |
+| Files in `~/.sayvoy` | One predictable place per user, outside the code; settings will live here too (v0.2.x) | Next to the jar: breaks when the jar moves |
 | Fall back to Windows voices | The app always works, even before the user installs anything | Refuse to start without Piper |
 
 ## Concepts to study from this step
@@ -26,6 +26,6 @@ A second `SpeechEngine` that speaks with Piper's neural voices: offline, free, a
 
 ## Exercises for you
 
-1. Run `scripts\install-voices.ps1`, restart Sayso, and compare voices with Ctrl+Alt+V. Which one should be the default?
+1. Run `scripts\install-voices.ps1`, restart Sayvoy, and compare voices with Ctrl+Alt+V. Which one should be the default?
 2. Find a Hindi or Indian-English voice in the [piper-voices list](https://huggingface.co/rhasspy/piper-voices) and add it to the install script.
 3. Read the PR diff on GitHub before merging, and leave at least one review comment.
