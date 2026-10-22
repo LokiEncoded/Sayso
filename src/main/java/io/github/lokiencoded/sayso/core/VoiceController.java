@@ -102,21 +102,22 @@ public final class VoiceController {
             return;
         }
         cues.thinking();
+        long letGoAt = System.nanoTime();
         int ticket = generation.incrementAndGet();
         if (mode == Mode.ASK) {
             // Copy the selection now: the user has just let go of the shortcut keys.
             String selection = PageCleaner.tidy(capture.captureSelection());
             recent.remember(selection);
             log.info("Asking about {} characters of selected text", selection.length());
-            background.execute(() -> answer(ticket, speech, selection));
+            background.execute(() -> answer(ticket, speech, selection, letGoAt));
         } else {
             String context = recent.get();
             log.info("Writing a reply ({} characters of context)", context.length());
-            background.execute(() -> reply(ticket, speech, context));
+            background.execute(() -> reply(ticket, speech, context, letGoAt));
         }
     }
 
-    private void answer(int ticket, Recording question, String selection) {
+    private void answer(int ticket, Recording question, String selection, long letGoAt) {
         String reply;
         try {
             reply = SpeakableText.clean(assistant.orElseThrow().answer(question.wav(), selection));
@@ -128,11 +129,12 @@ public final class VoiceController {
             reply = "Something went wrong while asking. Please try again.";
         }
         if (isCurrent(ticket)) {
+            log.info("Answer ready {} ms after you let go", millisSince(letGoAt));
             say.accept(reply);
         }
     }
 
-    private void reply(int ticket, Recording speech, String context) {
+    private void reply(int ticket, Recording speech, String context, long letGoAt) {
         try {
             String text = assistant.orElseThrow().writeReply(speech.wav(), context).strip();
             if (!isCurrent(ticket)) {
@@ -142,8 +144,11 @@ public final class VoiceController {
                 say.accept("I didn't catch that. Please try again.");
                 return;
             }
+            long pasteStarted = System.nanoTime();
             output.paste(text);
-            log.info("Typed a reply of {} characters", text.length());
+            log.info("Typed a reply of {} characters, {} ms after you let go (Gemini {} ms, pasting {} ms)",
+                    text.length(), millisSince(letGoAt),
+                    (pasteStarted - letGoAt) / 1_000_000, millisSince(pasteStarted));
         } catch (AskException e) {
             log.warn("Reply failed: {}", e.getMessage(), e.getCause());
             if (isCurrent(ticket)) {
@@ -155,6 +160,10 @@ public final class VoiceController {
                 say.accept("Something went wrong while writing your reply. Please try again.");
             }
         }
+    }
+
+    private static long millisSince(long nanoTime) {
+        return (System.nanoTime() - nanoTime) / 1_000_000;
     }
 
     private boolean isCurrent(int ticket) {
