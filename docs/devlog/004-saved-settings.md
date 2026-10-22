@@ -4,7 +4,7 @@
 
 ## What we built
 
-`%USERPROFILE%\.sayso\settings.properties` holds the voice, the speed and every shortcut. Sayso creates it with comments on first run, saves voice and speed whenever you change them, and reads your shortcut edits at startup.
+`%USERPROFILE%\.sayvoy\settings.properties` holds the voice, the speed and every shortcut. Sayvoy creates it with comments on first run, saves voice and speed whenever you change them, and reads your shortcut edits at startup.
 
 ## Decisions and why
 
@@ -32,6 +32,6 @@
 
 ## Exercises for you
 
-1. Run Sayso once, open your `settings.properties`, and change Stop to a shortcut you like. Restart and try it.
+1. Run Sayvoy once, open your `settings.properties`, and change Stop to a shortcut you like. Restart and try it.
 2. Put a typo in one shortcut and watch the console warning.
-3. Add a new setting, `startup_message=true|false`, that controls whether the shortcut list prints at startup. You'll touch `Settings`, `SettingsFile` and `SaysoApp`, and should add a test.
+3. Add a new setting, `startup_message=true|false`, that controls whether the shortcut list prints at startup. You'll touch `Settings`, `SettingsFile` and `SayvoyApp`, and should add a test.
