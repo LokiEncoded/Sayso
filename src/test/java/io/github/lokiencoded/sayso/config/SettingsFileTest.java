@@ -97,7 +97,7 @@ class SettingsFileTest {
     @Test
     void writtenFileExplainsEverySetting() {
         String text = SettingsFile.render(new Settings());
-        for (Command command : Command.values()) {
+        for (Command command : Command.withShortcuts()) {
             assertTrue(text.contains(command.settingsKey() + "="), command.settingsKey());
         }
         assertTrue(text.contains("# Speed"), text);

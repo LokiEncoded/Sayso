@@ -20,8 +20,13 @@ public final class Settings {
     /** Defaults chosen to avoid common clashes (Ctrl+Alt+S is HP System Information and IntelliJ Settings). */
     public static final Map<Command, String> DEFAULT_SHORTCUTS = defaultShortcuts();
 
+    /** Always points at Google's current Flash model, so renames and deprecations don't break Ask. */
+    public static final String DEFAULT_GEMINI_MODEL = "gemini-flash-latest";
+
     private int rate = DEFAULT_RATE;
     private String voiceName;   // null means "the first installed voice"
+    private String geminiApiKey;   // null means Ask is not set up
+    private String geminiModel = DEFAULT_GEMINI_MODEL;
     private final Map<Command, Shortcut> shortcuts = new EnumMap<>(Command.class);
 
     public Settings() {
@@ -63,6 +68,22 @@ public final class Settings {
         return Optional.of(voices.get((current + 1) % voices.size()));
     }
 
+    public String geminiApiKey() {
+        return geminiApiKey;
+    }
+
+    public void setGeminiApiKey(String key) {
+        this.geminiApiKey = key == null || key.isBlank() ? null : key.strip();
+    }
+
+    public String geminiModel() {
+        return geminiModel;
+    }
+
+    public void setGeminiModel(String model) {
+        this.geminiModel = model == null || model.isBlank() ? DEFAULT_GEMINI_MODEL : model.strip();
+    }
+
     public Shortcut shortcut(Command command) {
         return shortcuts.get(command);
     }
@@ -79,6 +100,7 @@ public final class Settings {
         Map<Command, String> defaults = new EnumMap<>(Command.class);
         defaults.put(Command.READ_SELECTION, "ctrl+alt+R");
         defaults.put(Command.READ_PAGE, "ctrl+alt+P");
+        defaults.put(Command.ASK, "ctrl+alt+A");
         defaults.put(Command.STOP, "ctrl+alt+X");
         defaults.put(Command.FASTER, "ctrl+alt+PERIOD");
         defaults.put(Command.SLOWER, "ctrl+alt+COMMA");

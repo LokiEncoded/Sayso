@@ -29,7 +29,7 @@ class SettingsTest {
         Settings settings = new Settings();
         assertNull(settings.voiceName());
         assertEquals("Ctrl+Alt+R", settings.shortcut(Command.READ_SELECTION).label());
-        assertEquals(Command.values().length, settings.shortcuts().size());
+        assertEquals(Command.withShortcuts().size(), settings.shortcuts().size());
     }
 
     @Test
