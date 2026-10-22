@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class AskControllerTest {
+class VoiceControllerTest {
 
     private final FakeRecorder recorder = new FakeRecorder();
     private final FakeAssistant assistant = new FakeAssistant();
@@ -40,14 +40,17 @@ class AskControllerTest {
     /** Holds background work until the test runs it, so we can cancel in between. */
     private final Executor later = pending::add;
 
-    private AskController controller(Optional<Assistant> assistant) {
-        return new AskController(recorder, assistant, capture, Cues.SILENT, later, spoken::add);
+    private final List<String> typed = new ArrayList<>();
+    private final RecentText recent = new RecentText();
+
+    private VoiceController controller(Optional<Assistant> assistant) {
+        return new VoiceController(recorder, assistant, capture, typed::add, recent, Cues.SILENT, later, spoken::add);
     }
 
     @Test
     void holdSpeakReleaseGetsASpokenAnswer() {
-        AskController ask = controller(Optional.of(assistant));
-        ask.startListening();
+        VoiceController ask = controller(Optional.of(assistant));
+        ask.startListening(VoiceController.Mode.ASK);
         assertTrue(recorder.recording);
 
         recorder.durationMillis = 2_000;
@@ -63,26 +66,26 @@ class AskControllerTest {
     /** Seen on a real laptop: a second "pressed" event while already listening restarted the question. */
     @Test
     void aSecondPressWhileListeningIsIgnored() {
-        AskController ask = controller(Optional.of(assistant));
-        ask.startListening();
+        VoiceController ask = controller(Optional.of(assistant));
+        ask.startListening(VoiceController.Mode.ASK);
         recorder.durationMillis = 2_000;
-        ask.startListening();
+        ask.startListening(VoiceController.Mode.ASK);
         assertEquals(1, recorder.starts);
         assertTrue(recorder.recording);
     }
 
     @Test
     void withoutAnApiKeyItExplainsHowToSetUp() {
-        AskController ask = controller(Optional.empty());
-        ask.startListening();
+        VoiceController ask = controller(Optional.empty());
+        ask.startListening(VoiceController.Mode.ASK);
         assertFalse(recorder.recording);
         assertTrue(spoken.getFirst().contains("API key"), spoken.getFirst());
     }
 
     @Test
     void aQuickTapIsNotSent() {
-        AskController ask = controller(Optional.of(assistant));
-        ask.startListening();
+        VoiceController ask = controller(Optional.of(assistant));
+        ask.startListening(VoiceController.Mode.ASK);
         recorder.durationMillis = 100;
         ask.finishListening();
         assertTrue(pending.isEmpty());
@@ -91,8 +94,8 @@ class AskControllerTest {
 
     @Test
     void stopDropsAnAnswerStillOnItsWay() {
-        AskController ask = controller(Optional.of(assistant));
-        ask.startListening();
+        VoiceController ask = controller(Optional.of(assistant));
+        ask.startListening(VoiceController.Mode.ASK);
         recorder.durationMillis = 2_000;
         ask.finishListening();
 
@@ -105,8 +108,8 @@ class AskControllerTest {
     @Test
     void errorsAreSpoken() {
         assistant.failure = new AskException("I couldn't reach Gemini. Check your internet connection.");
-        AskController ask = controller(Optional.of(assistant));
-        ask.startListening();
+        VoiceController ask = controller(Optional.of(assistant));
+        ask.startListening(VoiceController.Mode.ASK);
         recorder.durationMillis = 2_000;
         ask.finishListening();
         pending.forEach(Runnable::run);
@@ -116,8 +119,66 @@ class AskControllerTest {
     @Test
     void missingMicrophoneIsSpoken() {
         recorder.failure = new AskException("I can't find a microphone.");
-        controller(Optional.of(assistant)).startListening();
+        controller(Optional.of(assistant)).startListening(VoiceController.Mode.ASK);
         assertEquals(List.of("I can't find a microphone."), spoken);
+    }
+
+    // ---- Reply ----
+
+    @Test
+    void replyIsTypedIntoTheTextBoxNotSpoken() {
+        holdSpeakAndLetGoForReply();
+        assertEquals(List.of("Sounds good, see you Thursday."), typed);
+        assertTrue(spoken.isEmpty());
+    }
+
+    @Test
+    void replyUsesWhatWasJustReadAsContext() {
+        recent.remember("Hi Lokesh, can we meet on Thursday? - Priya");
+        holdSpeakAndLetGoForReply();
+        assertEquals("Hi Lokesh, can we meet on Thursday? - Priya", assistant.lastReplyContext);
+    }
+
+    @Test
+    void askingRemembersTheSelectionForTheNextReply() {
+        VoiceController voice = controller(Optional.of(assistant));
+        voice.startListening(VoiceController.Mode.ASK);
+        recorder.durationMillis = 2_000;
+        voice.finishListening();
+        assertEquals("The selected paragraph.", recent.get());
+    }
+
+    @Test
+    void anEmptyReplyIsSpokenNotTyped() {
+        assistant.reply = "   ";
+        holdSpeakAndLetGoForReply();
+        assertTrue(typed.isEmpty());
+        assertTrue(spoken.getFirst().contains("didn't catch"), spoken.getFirst());
+    }
+
+    @Test
+    void stopDropsAReplyStillOnItsWay() {
+        VoiceController voice = controller(Optional.of(assistant));
+        voice.startListening(VoiceController.Mode.REPLY);
+        recorder.durationMillis = 2_000;
+        voice.finishListening();
+        voice.cancel();
+        pending.forEach(Runnable::run);
+        assertTrue(typed.isEmpty());
+    }
+
+    @Test
+    void replyWithoutAKeySaysReplyNeedsOne() {
+        controller(Optional.empty()).startListening(VoiceController.Mode.REPLY);
+        assertTrue(spoken.getFirst().startsWith("Reply needs"), spoken.getFirst());
+    }
+
+    private void holdSpeakAndLetGoForReply() {
+        VoiceController voice = controller(Optional.of(assistant));
+        voice.startListening(VoiceController.Mode.REPLY);
+        recorder.durationMillis = 2_000;
+        voice.finishListening();
+        pending.forEach(Runnable::run);
     }
 
     @Test
@@ -157,6 +218,8 @@ class AskControllerTest {
     private static final class FakeAssistant implements Assistant {
         byte[] lastWav;
         String lastSelection;
+        String lastReplyContext;
+        String reply = "Sounds good, see you Thursday.";
         AskException failure;
 
         @Override
@@ -167,6 +230,15 @@ class AskControllerTest {
             lastWav = questionWav;
             lastSelection = selectedText;
             return "**Plants** make sugar from light.";
+        }
+
+        @Override
+        public String writeReply(byte[] speechWav, String recentContext) throws AskException {
+            if (failure != null) {
+                throw failure;
+            }
+            lastReplyContext = recentContext;
+            return reply;
         }
     }
 }

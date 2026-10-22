@@ -103,18 +103,18 @@ public final class HotkeyListener implements NativeKeyListener {
         }
     }
 
-    /** A key-up was missed somewhere: forget held keys, and end a question that was being asked. */
+    /** A key-up was missed somewhere: forget held keys, and end anything being said. */
     private void releaseAll() {
         for (Integer key : firedKeys.keySet()) {
             onKeyReleased(key);
         }
     }
 
-    /** Letting go of the Ask key ends the question (hold to talk). */
+    /** Letting go of a hold-to-talk key (Ask, Reply) ends what was being said. */
     void onKeyReleased(int keyCode) {
         Command released = firedKeys.remove(keyCode);
-        if (released == Command.ASK) {
-            sink.accept(Command.ASK_RELEASED);
+        if (released != null && released.whenReleased() != null) {
+            sink.accept(released.whenReleased());
         }
     }
 }

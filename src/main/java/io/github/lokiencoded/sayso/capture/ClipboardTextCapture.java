@@ -20,7 +20,7 @@ import java.util.function.BooleanSupplier;
  * clipboard, then put back whatever they had copied before. Works in almost
  * every app, which makes it the right first step.
  */
-public final class ClipboardTextCapture implements TextCapture {
+public final class ClipboardTextCapture implements TextCapture, TextOutput {
 
     private static final Logger log = LoggerFactory.getLogger(ClipboardTextCapture.class);
 
@@ -28,6 +28,7 @@ public final class ClipboardTextCapture implements TextCapture {
     private static final long MODIFIER_WAIT_MS = 1_000;
     private static final long COPY_WAIT_MS = 600;
     private static final long POLL_MS = 20;
+    private static final long PASTE_SETTLE_MS = 500;
 
     private final BooleanSupplier modifiersHeld;
     private final Robot robot;
@@ -54,7 +55,30 @@ public final class ClipboardTextCapture implements TextCapture {
         return capture(true);
     }
 
-    private CapturedText capture(boolean selectAll) {
+    /**
+     * Types text into the focused app the way Wispr Flow does: put it on the clipboard, press
+     * Ctrl+V, then put back whatever the user had copied. Much faster and more reliable than
+     * simulating each keystroke, and it handles any language or emoji.
+     */
+    @Override
+    public synchronized void paste(String text) {
+        if (text == null || text.isBlank()) {
+            return;
+        }
+        // Same reason as capture(): Ctrl+V pressed while Ctrl+Alt are held would arrive as
+        // Ctrl+Alt+V, which is Sayso's own "next voice" shortcut.
+        waitUntil(() -> !modifiersHeld.getAsBoolean(), MODIFIER_WAIT_MS);
+        ClipboardSnapshot saved = ClipboardSnapshot.take(clipboard);
+        setClipboard(new StringSelection(text));
+        sleep(30);
+        pressCtrlAnd(KeyEvent.VK_V);
+        // Some apps (Electron ones like WhatsApp and Slack) read the clipboard a moment after
+        // the keystroke, so wait before putting the user's own clipboard back.
+        sleep(PASTE_SETTLE_MS);
+        saved.restore(this::setClipboard);
+    }
+
+    private synchronized CapturedText capture(boolean selectAll) {
         // The hotkey fires while Ctrl+Alt are still down. If we pressed Ctrl+C now,
         // the app would receive Ctrl+Alt+C. So wait until the user lets go.
         waitUntil(() -> !modifiersHeld.getAsBoolean(), MODIFIER_WAIT_MS);

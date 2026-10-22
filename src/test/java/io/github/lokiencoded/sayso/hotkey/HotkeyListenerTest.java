@@ -78,6 +78,13 @@ class HotkeyListenerTest {
     }
 
     @Test
+    void lettingGoOfReplyEndsTheReply() {
+        listener.onKeyPressed(NativeKeyEvent.VC_D, CTRL_ALT_MASK);
+        listener.onKeyReleased(NativeKeyEvent.VC_D);
+        assertEquals(List.of(Command.REPLY, Command.REPLY_RELEASED), fired);
+    }
+
+    @Test
     void lettingGoOfOtherShortcutsSendsNothingExtra() {
         listener.onKeyPressed(NativeKeyEvent.VC_R, CTRL_ALT_MASK);
         listener.onKeyReleased(NativeKeyEvent.VC_R);
