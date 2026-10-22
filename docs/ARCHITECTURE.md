@@ -8,12 +8,13 @@ Sayso is four small parts connected by interfaces, with one class that wires the
                                                           └──► TextCapture ──► clipboard / other apps
 ```
 
-| Part | Package | Job | v0.1 implementation |
+| Part | Package | Job | Implementation |
 | --- | --- | --- | --- |
 | HotkeyListener | `hotkey` | Turns system-wide key presses into `Command`s | JNativeHook |
 | CommandLoop | `core` | Takes one command at a time and carries it out | Plain Java, single thread |
-| TextCapture | `capture` | Gets text from the app in front | Clipboard trick (`ClipboardTextCapture`) |
-| AskController | `core` + `ask` | Hold to talk: record, copy the selection, ask Gemini off the command thread, speak the answer | `MicrophoneRecorder`, `GeminiAssistant` (generateContent with inline WAV), `Cues` |
+| TextCapture / TextOutput | `capture` | Gets text from the app in front, and types text into it | Clipboard trick both ways (`ClipboardTextCapture`) |
+| RecentText | `core` | Remembers what was last read aloud, as context for a reply (10 minutes) | In memory only |
+| VoiceController | `core` + `ask` | Hold to talk for Ask and Reply: record, ask Gemini off the command thread, then speak the answer (Ask) or paste the cleaned-up text (Reply) | `MicrophoneRecorder`, `GeminiAssistant` (generateContent with inline WAV), `Cues` |
 | SettingsFile | `config` | Loads and saves voice, speed and shortcuts in `settings.properties` | Java `Properties` to read; a commented, ordered file when writing |
 | PageCleaner | `extract` | Turns a copied page into just the article (like Reader Mode) | jsoup, with semantic tags first and paragraph density as a fallback |
 | SpeechEngine | `speech` | Speaks text, stops, lists voices | `PiperSpeechEngine` (neural, offline) when installed, else `WindowsSapiSpeechEngine`; chosen by `SpeechEngines.best()` |
@@ -32,4 +33,5 @@ Sayso is four small parts connected by interfaces, with one class that wires the
 | --- | --- |
 | v0.2 | ~~Neural voices~~, ~~reading just the article~~, ~~saved and configurable settings~~: all done |
 | v0.3 | ~~Ask: hold to talk, Gemini hears the question and sees the selection, answer spoken back~~ done |
-| v0.4 | Reply: speak a response, cleaned up and pasted into the text box (the full loop) |
+| v0.4 | ~~Reply: speak a response, cleaned up and pasted into the text box (the full loop)~~ done |
+| next | Packaging: a Windows installer and tray icon, so Sayso runs without IntelliJ |

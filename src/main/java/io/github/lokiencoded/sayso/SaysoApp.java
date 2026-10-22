@@ -5,11 +5,11 @@ import io.github.lokiencoded.sayso.ask.Cues;
 import io.github.lokiencoded.sayso.ask.GeminiAssistant;
 import io.github.lokiencoded.sayso.ask.MicrophoneRecorder;
 import io.github.lokiencoded.sayso.capture.ClipboardTextCapture;
-import io.github.lokiencoded.sayso.capture.TextCapture;
 import io.github.lokiencoded.sayso.config.SettingsFile;
-import io.github.lokiencoded.sayso.core.AskController;
+import io.github.lokiencoded.sayso.core.VoiceController;
 import io.github.lokiencoded.sayso.core.Command;
 import io.github.lokiencoded.sayso.core.CommandLoop;
+import io.github.lokiencoded.sayso.core.RecentText;
 import io.github.lokiencoded.sayso.core.SaysoPaths;
 import io.github.lokiencoded.sayso.core.Settings;
 import io.github.lokiencoded.sayso.hotkey.HotkeyListener;
@@ -48,9 +48,11 @@ public final class SaysoApp {
 
         BlockingQueue<Command> commands = new LinkedBlockingQueue<>();
         HotkeyListener hotkeys = new HotkeyListener(new KeyBindings(settings.shortcuts()), commands::offer);
-        TextCapture capture = new ClipboardTextCapture(hotkeys::modifiersHeld);
+        ClipboardTextCapture clipboard = new ClipboardTextCapture(hotkeys::modifiersHeld);
+        RecentText recent = new RecentText();
         SpeechEngine speech = SpeechEngines.best(paths);
-        AskController ask = new AskController(new MicrophoneRecorder(), assistant(settings), capture,
+        VoiceController voice = new VoiceController(new MicrophoneRecorder(), assistant(settings), clipboard,
+                clipboard, recent,
                 // A cached pool, not a single thread: a new question must never queue behind a slow one.
                 new Cues(), Executors.newCachedThreadPool(SaysoApp::daemon),
                 text -> speech.speak(text, settings.rate(), settings.voiceName()));
@@ -59,7 +61,7 @@ public final class SaysoApp {
         printShortcuts(settings, settingsFile);
 
         // Blocks here until the user presses the quit shortcut.
-        new CommandLoop(commands, capture, speech, settings, settingsFile::save, ask).run();
+        new CommandLoop(commands, clipboard, speech, settings, settingsFile::save, voice, recent).run();
 
         speech.stop();
         hotkeys.stop();
@@ -73,10 +75,10 @@ public final class SaysoApp {
         String envKey = System.getenv("GEMINI_API_KEY");
         String key = envKey != null && !envKey.isBlank() ? envKey.strip() : settings.geminiApiKey();
         if (key == null) {
-            log.info("Ask is off: no Gemini API key. Add gemini.api_key to the settings file to turn it on.");
+            log.info("Ask and Reply are off: no Gemini API key. Add gemini.api_key to the settings file to turn them on.");
             return Optional.empty();
         }
-        log.info("Ask uses Gemini model {} (fallback: {})", settings.geminiModel(),
+        log.info("Ask and Reply use Gemini model {} (fallback: {})", settings.geminiModel(),
                 settings.geminiFallbackModel() == null ? "none" : settings.geminiFallbackModel());
         return Optional.of(new GeminiAssistant(key, settings.geminiModel(), settings.geminiFallbackModel()));
     }

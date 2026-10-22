@@ -43,6 +43,35 @@ class GeminiAssistantTest {
     }
 
     @Test
+    void replyRequestUsesTheReplyInstructionsAndContext() {
+        JsonObject body = JsonParser.parseString(GeminiAssistant.requestBody(GeminiAssistant.REPLY_INSTRUCTIONS,
+                GeminiAssistant.describeReplyContext("Can we meet Thursday? - Priya"), AUDIO)).getAsJsonObject();
+        String instructions = body.getAsJsonObject("systemInstruction").getAsJsonArray("parts")
+                .get(0).getAsJsonObject().get("text").getAsString();
+        assertTrue(instructions.contains("filler words"), instructions);
+        assertTrue(instructions.contains("do not answer it"), instructions);
+        String context = body.getAsJsonArray("contents").get(0).getAsJsonObject().getAsJsonArray("parts")
+                .get(0).getAsJsonObject().get("text").getAsString();
+        assertTrue(context.contains("Priya") && context.contains("context only"), context);
+    }
+
+    @Test
+    void replyWithoutContextJustTranscribes() {
+        assertEquals("Write the text from my speech in the audio.", GeminiAssistant.describeReplyContext(""));
+    }
+
+    @Test
+    void writeReplyGoesThroughTheSameEndpoint() throws Exception {
+        List<String> calls = new ArrayList<>();
+        HttpServer server = scriptedGemini(calls, (model, attempt) -> 200);
+        try {
+            assertEquals("Answer from main", gemini(server, "main", null).writeReply(AUDIO, ""));
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
     void saysWhenNothingIsSelected() {
         assertTrue(GeminiAssistant.describeSelection("  ").startsWith("No text is selected"));
     }

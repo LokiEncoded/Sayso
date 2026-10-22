@@ -6,7 +6,7 @@ Reads anything on your screen aloud with one shortcut. No copying, no switching 
 
 Sayso is the other half of the voice loop: tools like Wispr Flow turn your voice into text in place; Sayso turns on-screen text into voice in place, and will speak for you too.
 
-**Status:** v0.3: natural offline voices, article-only page reading, saved settings, and Ask: hold a shortcut, ask about what you selected, hear the answer. Windows only.
+**Status:** v0.4, the full loop: Sayso reads anything to you, answers questions about it, and writes your spoken replies into any text box. Windows only.
 
 Contributing or picking this up again? See [docs/WORKFLOW.md](docs/WORKFLOW.md) for branches, commits and the PR flow.
 
@@ -29,6 +29,7 @@ By default, hold **Ctrl+Alt**, then press (all of these can be changed, see [Set
 | R | Read the selected text; press again to stop |
 | P | Read the whole page or window; press again to stop |
 | A | Ask: hold, speak your question, let go |
+| D | Reply: hold, speak, let go; typed into the text box you're in |
 | X | Stop |
 | . / , | Faster / slower |
 | V | Next voice |
@@ -47,6 +48,18 @@ Select some text (or nothing), **hold Ctrl+Alt+A, ask your question out loud, an
 **Setup (one time):** get a free API key at [Google AI Studio](https://aistudio.google.com/apikey), paste it after `gemini.api_key=` in your settings file, and restart Sayso.
 
 **Privacy:** your recorded question and the selected text are sent to Google Gemini. Nothing is sent until you hold the Ask shortcut.
+
+## Reply (hold to talk)
+
+Click into any text box (WhatsApp, Gmail, Slack, Word…), **hold Ctrl+Alt+D, say what you want to write, and let go**. Sayso types a cleaned-up version for you: no "um"s, no false starts, grammar fixed, your own words and tone kept.
+
+It closes the loop with reading: if Sayso just read you a message (Ctrl+Alt+R), your reply uses it as context, so names and details come out right. That context is forgotten after 10 minutes.
+
+- "Sounds good um let's do Thursday no wait Friday at five" becomes "Sounds good, let's do Friday at five."
+- Say "new line" or "new paragraph" for line breaks.
+- Your clipboard is put back afterwards.
+
+**Privacy:** like Ask, your speech and the recent context go to Google Gemini, and only while you hold the shortcut.
 
 ## Settings
 
@@ -91,7 +104,7 @@ sayso/
     │   ├── SaysoApp.java           Entry point: wires the parts together
     │   ├── core/                   Commands, settings, the command loop
     │   ├── hotkey/                 System-wide keyboard shortcuts
-    │   ├── ask/                    Microphone, Gemini, spoken answers
+    │   ├── ask/                    Microphone, Gemini, spoken answers and written replies
     │   ├── capture/                Getting text from other apps
     │   ├── config/                 Settings file, shortcuts and key names
     │   ├── extract/                Finding the article in a copied page

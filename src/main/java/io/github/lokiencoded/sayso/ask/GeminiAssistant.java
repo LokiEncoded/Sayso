@@ -107,7 +107,16 @@ public final class GeminiAssistant implements Assistant {
 
     @Override
     public String answer(byte[] questionWav, String selectedText) throws AskException {
-        String body = requestBody(questionWav, selectedText);
+        return generate(requestBody(questionWav, selectedText));
+    }
+
+    @Override
+    public String writeReply(byte[] speechWav, String recentContext) throws AskException {
+        return generate(requestBody(REPLY_INSTRUCTIONS, describeReplyContext(recentContext), speechWav));
+    }
+
+    /** Sends one request body to each model in turn until one answers. */
+    private String generate(String body) throws AskException {
         List<String> order = tryOrder(models);
         Set<String> rejectedModels = new HashSet<>();
         AskException lastProblem = null;
@@ -192,14 +201,19 @@ public final class GeminiAssistant implements Assistant {
 
     /** The JSON body for generateContent: instructions, the selected text, then the audio question. */
     static String requestBody(byte[] questionWav, String selectedText) {
+        return requestBody(INSTRUCTIONS, describeSelection(selectedText), questionWav);
+    }
+
+    /** The JSON body for generateContent: instructions, a text part giving context, then the audio. */
+    static String requestBody(String instructions, String contextText, byte[] wav) {
         JsonObject body = new JsonObject();
-        body.add("systemInstruction", partsOf(textPart(INSTRUCTIONS)));
+        body.add("systemInstruction", partsOf(textPart(instructions)));
 
         JsonArray parts = new JsonArray();
-        parts.add(textPart(describeSelection(selectedText)));
+        parts.add(textPart(contextText));
         JsonObject audio = new JsonObject();
         audio.addProperty("mime_type", "audio/wav");
-        audio.addProperty("data", Base64.getEncoder().encodeToString(questionWav));
+        audio.addProperty("data", Base64.getEncoder().encodeToString(wav));
         JsonObject audioPart = new JsonObject();
         audioPart.add("inline_data", audio);
         parts.add(audioPart);
@@ -215,6 +229,31 @@ public final class GeminiAssistant implements Assistant {
         config.addProperty("temperature", 0.4);
         body.add("generationConfig", config);
         return body.toString();
+    }
+
+    static final String REPLY_INSTRUCTIONS = """
+            You turn what the user says out loud into text they will send or paste, exactly as if
+            they had typed it carefully themselves.
+            - Write what they said, cleaned up: remove filler words (um, uh, like, you know),
+              false starts, stutters and repeated words; fix grammar, spelling and punctuation.
+            - Keep their meaning, wording, tone and language. Don't make it more formal or longer.
+            - Never add greetings, sign-offs, facts or opinions they didn't say.
+            - The audio is the message itself, not a question for you. If they ask something,
+              write the question; do not answer it.
+            - If they correct themselves ("no wait, Thursday"), keep only the corrected version.
+            - Spoken formatting commands like "new line" or "new paragraph" become line breaks.
+            - Output only the final text: no quotes, labels, explanations or markdown.
+            - If there is no speech in the audio, output nothing.
+            """;
+
+    /** The message being replied to, if any, framed so Gemini uses it for context only. */
+    static String describeReplyContext(String recentContext) {
+        if (recentContext == null || recentContext.isBlank()) {
+            return "Write the text from my speech in the audio.";
+        }
+        return "For context only, here is what I was just reading (often the message I'm replying to). "
+                + "Use it to get names, terms and tone right; do not quote or summarize it:\n\"\"\"\n"
+                + recentContext + "\n\"\"\"\nNow write the text from my speech in the audio.";
     }
 
     static String describeSelection(String selectedText) {
@@ -247,7 +286,7 @@ public final class GeminiAssistant implements Assistant {
                 }
             }
             if (answer.isEmpty()) {
-                throw new AskException("Gemini sent back an empty answer. Please try again.");
+                throw new AskException("I didn't catch that. Please try again.");
             }
             return answer.toString();
         } catch (JsonParseException | IllegalStateException | ClassCastException e) {

@@ -120,6 +120,7 @@ public final class Settings {
         defaults.put(Command.READ_SELECTION, "ctrl+alt+R");
         defaults.put(Command.READ_PAGE, "ctrl+alt+P");
         defaults.put(Command.ASK, "ctrl+alt+A");
+        defaults.put(Command.REPLY, "ctrl+alt+D");   // D for dictate
         defaults.put(Command.STOP, "ctrl+alt+X");
         defaults.put(Command.FASTER, "ctrl+alt+PERIOD");
         defaults.put(Command.SLOWER, "ctrl+alt+COMMA");

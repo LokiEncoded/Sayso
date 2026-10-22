@@ -78,6 +78,13 @@ class HotkeyListenerTest {
     }
 
     @Test
+    void lettingGoOfReplyEndsTheReply() {
+        listener.onKeyPressed(NativeKeyEvent.VC_D, CTRL_ALT_MASK);
+        listener.onKeyReleased(NativeKeyEvent.VC_D);
+        assertEquals(List.of(Command.REPLY, Command.REPLY_RELEASED), fired);
+    }
+
+    @Test
     void lettingGoOfOtherShortcutsSendsNothingExtra() {
         listener.onKeyPressed(NativeKeyEvent.VC_R, CTRL_ALT_MASK);
         listener.onKeyReleased(NativeKeyEvent.VC_R);
@@ -90,6 +97,28 @@ class HotkeyListenerTest {
         windowsSaysHeld = EnumSet.noneOf(Modifier.class);
         listener.onKeyPressed(NativeKeyEvent.VC_V, CTRL_ALT_MASK);   // stale event triggers the reset
         assertEquals(List.of(Command.ASK, Command.ASK_RELEASED), fired);
+    }
+
+    /** The ḍḍḍḍ bug: our shortcut keys, and their auto-repeats, must be swallowed, not typed. */
+    @Test
+    void shortcutKeysAreSwallowedIncludingRepeats() {
+        assertTrue(listener.onKeyPressed(NativeKeyEvent.VC_D, CTRL_ALT_MASK));
+        assertTrue(listener.onKeyPressed(NativeKeyEvent.VC_D, CTRL_ALT_MASK));   // held: auto-repeat
+        assertTrue(listener.onKeyReleased(NativeKeyEvent.VC_D));
+    }
+
+    @Test
+    void everythingElseReachesTheApp() {
+        windowsSaysHeld = EnumSet.of(Modifier.CTRL);
+        assertFalse(listener.onKeyPressed(NativeKeyEvent.VC_V, NativeInputEvent.CTRL_L_MASK));   // a real Ctrl+V
+        assertFalse(listener.onKeyReleased(NativeKeyEvent.VC_V));
+        assertFalse(listener.onKeyPressed(NativeKeyEvent.VC_J, CTRL_ALT_MASK));                  // not ours
+    }
+
+    @Test
+    void aStaleShortcutIsNotSwallowed() {
+        windowsSaysHeld = EnumSet.noneOf(Modifier.class);
+        assertFalse(listener.onKeyPressed(NativeKeyEvent.VC_D, CTRL_ALT_MASK));
     }
 
     @Test

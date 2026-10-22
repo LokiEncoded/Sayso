@@ -26,10 +26,11 @@ class CommandLoopTest {
     private final FakeSpeech speech = new FakeSpeech();
     private final Settings settings = new Settings();
     private int saves;
-    private final AskController ask = new AskController(new IdleRecorder(), Optional.empty(), capture,
-            Cues.SILENT, Runnable::run, speech.spoken::add);
-    private final CommandLoop loop =
-            new CommandLoop(new LinkedBlockingQueue<>(), capture, speech, settings, saved -> saves++, ask);
+    private final RecentText recent = new RecentText();
+    private final VoiceController voice = new VoiceController(new IdleRecorder(), Optional.empty(), capture,
+            text -> { }, recent, Cues.SILENT, Runnable::run, speech.spoken::add);
+    private final CommandLoop loop = new CommandLoop(
+            new LinkedBlockingQueue<>(), capture, speech, settings, saved -> saves++, voice, recent);
 
     @Test
     void readsSelectedText() {
@@ -124,6 +125,21 @@ class CommandLoopTest {
         loop.handle(Command.ASK);
         assertEquals(1, speech.stops);
         assertTrue(speech.spoken.getFirst().contains("API key"));   // no key in this test
+    }
+
+    @Test
+    void whatWasReadIsRememberedForTheNextReply() {
+        capture.selection = "Can we meet on Thursday?";
+        loop.handle(Command.READ_SELECTION);
+        assertEquals("Can we meet on Thursday?", recent.get());
+    }
+
+    @Test
+    void replyStopsSpeechToo() {
+        speech.speaking = true;
+        loop.handle(Command.REPLY);
+        assertEquals(1, speech.stops);
+        assertTrue(speech.spoken.getFirst().startsWith("Reply needs"));   // no key in this test
     }
 
     @Test

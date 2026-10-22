@@ -25,21 +25,25 @@ public final class CommandLoop implements Runnable {
     private final SpeechEngine speech;
     private final Settings settings;
     private final Consumer<Settings> saveSettings;
-    private final AskController ask;
+    private final VoiceController voice;
+    private final RecentText recent;
 
     /**
      * @param saveSettings called whenever the user changes voice or speed, so the
      *                     change survives a restart (SettingsFile::save in the app)
-     * @param ask          handles the hold-to-talk Ask shortcut
+     * @param voice        handles the hold-to-talk shortcuts, Ask and Reply
+     * @param recent       remembers what was read aloud, as context for the next reply
      */
     public CommandLoop(BlockingQueue<Command> commands, TextCapture capture, SpeechEngine speech,
-                       Settings settings, Consumer<Settings> saveSettings, AskController ask) {
+                       Settings settings, Consumer<Settings> saveSettings, VoiceController voice,
+                       RecentText recent) {
         this.commands = commands;
         this.capture = capture;
         this.speech = speech;
         this.settings = settings;
         this.saveSettings = saveSettings;
-        this.ask = ask;
+        this.voice = voice;
+        this.recent = recent;
     }
 
     @Override
@@ -69,31 +73,31 @@ public final class CommandLoop implements Runnable {
         switch (command) {
             // The read shortcuts toggle: pressed while speaking, they stop instead.
             case READ_SELECTION -> {
-                ask.cancel();
+                voice.cancel();
                 if (!stopIfSpeaking()) {
                     speakOr(PageCleaner.tidy(capture.captureSelection()), "Nothing is selected.");
                 }
             }
             case READ_PAGE -> {
-                ask.cancel();
+                voice.cancel();
                 if (!stopIfSpeaking()) {
                     speakOr(readablePage(capture.captureAll()), "I couldn't find any text here.");
                 }
             }
-            case ASK -> {
+            case ASK, REPLY -> {
                 speech.stop();   // listening while Sayso talks would record its own voice
-                ask.startListening();
+                voice.startListening(command == Command.ASK ? VoiceController.Mode.ASK : VoiceController.Mode.REPLY);
             }
-            case ASK_RELEASED -> ask.finishListening();
+            case ASK_RELEASED, REPLY_RELEASED -> voice.finishListening();
             case STOP -> {
-                ask.cancel();
+                voice.cancel();
                 speech.stop();
             }
             case FASTER -> changeRate(+1);
             case SLOWER -> changeRate(-1);
             case NEXT_VOICE -> nextVoice();
             case QUIT -> {
-                ask.cancel();
+                voice.cancel();
                 speech.stop();
                 return false;
             }
@@ -126,6 +130,7 @@ public final class CommandLoop implements Runnable {
     }
 
     private void speakOr(String text, String fallback) {
+        recent.remember(text);   // a reply right after this can use it as context
         say(text == null || text.isBlank() ? fallback : text);
     }
 
