@@ -104,6 +104,25 @@ class GeminiAssistantTest {
         }
     }
 
+    /** A long question is well over HTTP/2's 64 KB window; it must still go through in one piece. */
+    @Test
+    void sendsLongRecordingsInFull() throws Exception {
+        AtomicReference<String> body = new AtomicReference<>();
+        HttpServer server = fakeGemini(200, "{\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"ok\"}]}}]}",
+                new AtomicReference<>(), new AtomicReference<>(), body);
+        try {
+            HttpClient http1 = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build();
+            GeminiAssistant gemini = new GeminiAssistant(http1,
+                    "http://localhost:" + server.getAddress().getPort(), "k", "m");
+            byte[] tenSeconds = new byte[320_000];
+
+            assertEquals("ok", gemini.answer(tenSeconds, ""));
+            assertTrue(body.get().contains(Base64.getEncoder().encodeToString(tenSeconds)));
+        } finally {
+            server.stop(0);
+        }
+    }
+
     @Test
     void httpErrorsBecomeSpokenMessages() throws Exception {
         HttpServer server = fakeGemini(429, "{\"error\":{\"code\":429,\"message\":\"Quota exceeded\"}}",

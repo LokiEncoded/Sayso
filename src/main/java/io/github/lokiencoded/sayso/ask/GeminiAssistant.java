@@ -50,7 +50,12 @@ public final class GeminiAssistant implements Assistant {
     private final String model;
 
     public GeminiAssistant(String apiKey, String model) {
-        this(HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build(), GOOGLE, apiKey, model);
+        // HTTP/1.1 on purpose: with HTTP/2, a request bigger than the 64 KB flow-control window
+        // (a few seconds of audio is ~150 KB) can stall in Java's HttpClient until it times out.
+        this(HttpClient.newBuilder()
+                .version(HttpClient.Version.HTTP_1_1)
+                .connectTimeout(Duration.ofSeconds(10))
+                .build(), GOOGLE, apiKey, model);
     }
 
     /** For tests: talk to a fake server instead of Google. */
@@ -63,16 +68,21 @@ public final class GeminiAssistant implements Assistant {
 
     @Override
     public String answer(byte[] questionWav, String selectedText) throws AskException {
+        String body = requestBody(questionWav, selectedText);
         HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + "/v1beta/models/" + model + ":generateContent"))
-                .timeout(Duration.ofSeconds(60))
+                .timeout(Duration.ofSeconds(30))
                 .header("Content-Type", "application/json")
                 .header("x-goog-api-key", apiKey)
-                .POST(HttpRequest.BodyPublishers.ofString(requestBody(questionWav, selectedText)))
+                .POST(HttpRequest.BodyPublishers.ofString(body))
                 .build();
+        log.info("Sending {} KB to Gemini ({})", body.length() / 1024, model);
+        long started = System.nanoTime();
         HttpResponse<String> response;
         try {
             response = http.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            log.info("Gemini replied {} in {} ms", response.statusCode(), (System.nanoTime() - started) / 1_000_000);
         } catch (HttpTimeoutException e) {
+            log.warn("No reply from Gemini after {} ms", (System.nanoTime() - started) / 1_000_000);
             throw new AskException("Gemini took too long to answer. Please try again.", e);
         } catch (IOException e) {
             throw new AskException("I couldn't reach Gemini. Check your internet connection.", e);

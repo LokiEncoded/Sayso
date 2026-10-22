@@ -51,7 +51,8 @@ public final class SaysoApp {
         TextCapture capture = new ClipboardTextCapture(hotkeys::modifiersHeld);
         SpeechEngine speech = SpeechEngines.best(paths);
         AskController ask = new AskController(new MicrophoneRecorder(), assistant(settings), capture,
-                new Cues(), Executors.newSingleThreadExecutor(SaysoApp::daemon),
+                // A cached pool, not a single thread: a new question must never queue behind a slow one.
+                new Cues(), Executors.newCachedThreadPool(SaysoApp::daemon),
                 text -> speech.speak(text, settings.rate(), settings.voiceName()));
 
         hotkeys.start();
