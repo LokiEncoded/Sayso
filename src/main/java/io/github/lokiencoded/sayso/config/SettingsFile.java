@@ -75,9 +75,21 @@ public final class SettingsFile {
 
         settings.setVoiceName(properties.getProperty(VOICE));
         settings.setGeminiApiKey(properties.getProperty(GEMINI_API_KEY));
-        settings.setGeminiModel(properties.getProperty(GEMINI_MODEL));
-        if (properties.containsKey(GEMINI_FALLBACK_MODEL)) {
-            settings.setGeminiFallbackModel(properties.getProperty(GEMINI_FALLBACK_MODEL));
+        String model = properties.getProperty(GEMINI_MODEL);
+        if (model != null && !model.isBlank()) {
+            ModelNames.clean(model).ifPresentOrElse(settings::setGeminiModel,
+                    () -> problems.add(GEMINI_MODEL + "=" + model + " is not a model name; using "
+                            + Settings.DEFAULT_GEMINI_MODEL));
+        }
+        String fallback = properties.getProperty(GEMINI_FALLBACK_MODEL);
+        if (fallback != null) {
+            if (fallback.isBlank()) {
+                settings.setGeminiFallbackModel(null);
+            } else {
+                ModelNames.clean(fallback).ifPresentOrElse(settings::setGeminiFallbackModel,
+                        () -> problems.add(GEMINI_FALLBACK_MODEL + "=" + fallback + " is not a model name; using "
+                                + Settings.DEFAULT_GEMINI_FALLBACK_MODEL));
+            }
         }
 
         String rate = properties.getProperty(RATE);

@@ -6,26 +6,41 @@ package io.github.lokiencoded.sayso.ask;
  */
 public final class AskException extends Exception {
 
-    private final boolean temporary;
+    /** What kind of failure this is decides whether another try, or another model, can help. */
+    public enum Kind {
+        /** Overloaded, rate-limited or timed out: trying again or another model may well work. */
+        TEMPORARY,
+        /** The model name isn't accepted: the other model may still work. */
+        BAD_MODEL,
+        /** A bad key, no network, a bad request: no retry can help. */
+        PERMANENT
+    }
+
+    private final Kind kind;
 
     public AskException(String spokenMessage) {
-        this(spokenMessage, false, null);
+        this(spokenMessage, Kind.PERMANENT, null);
     }
 
     public AskException(String spokenMessage, Throwable cause) {
-        this(spokenMessage, false, cause);
+        this(spokenMessage, Kind.PERMANENT, cause);
     }
 
-    /**
-     * @param temporary true when trying again (or with another model) may well work,
-     *                  such as "model overloaded" or a timeout; false for a bad key or bad request
-     */
-    public AskException(String spokenMessage, boolean temporary, Throwable cause) {
+    public AskException(String spokenMessage, Kind kind, Throwable cause) {
         super(spokenMessage, cause);
-        this.temporary = temporary;
+        this.kind = kind;
+    }
+
+    public Kind kind() {
+        return kind;
     }
 
     public boolean isTemporary() {
-        return temporary;
+        return kind == Kind.TEMPORARY;
+    }
+
+    /** True when asking another model might succeed. */
+    public boolean anotherModelMightWork() {
+        return kind != Kind.PERMANENT;
     }
 }

@@ -241,6 +241,31 @@ class GeminiAssistantTest {
         }
     }
 
+    /** Seen on the laptop: a mistyped model name. The fallback still answers, and the bad one isn't retried. */
+    @Test
+    void aRejectedModelNameHandsOverToTheFallback() throws Exception {
+        List<String> calls = new ArrayList<>();
+        HttpServer server = scriptedGemini(calls, (model, attempt) -> model.equals("main") ? 400 : 200);
+        try {
+            assertEquals("Answer from lite", gemini(server, "main", "lite").answer(AUDIO, ""));
+            assertEquals(List.of("main", "lite"), calls);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void errorsAreSortedByWhetherAnotherTryCanHelp() {
+        String badModel = "{\"error\":{\"code\":400,\"message\":\"* GenerateContentRequest.model: unexpected model name format\"}}";
+        String badKey = "{\"error\":{\"code\":400,\"message\":\"API key not valid.\"}}";
+        assertEquals(AskException.Kind.BAD_MODEL, GeminiAssistant.kindOf(400, badModel));
+        assertEquals(AskException.Kind.BAD_MODEL, GeminiAssistant.kindOf(404, ""));
+        assertEquals(AskException.Kind.PERMANENT, GeminiAssistant.kindOf(400, badKey));
+        assertEquals(AskException.Kind.TEMPORARY, GeminiAssistant.kindOf(503, ""));
+        assertEquals(AskException.Kind.TEMPORARY, GeminiAssistant.kindOf(429, ""));
+        assertTrue(GeminiAssistant.errorMessage(400, badModel).contains("gemini.model"));
+    }
+
     @Test
     void fallbackIsOptional() {
         assertEquals(List.of("main"), GeminiAssistant.modelsToTry("main", null));
@@ -270,6 +295,7 @@ class GeminiAssistantTest {
             String reply = switch (code) {
                 case 200 -> OK.formatted(model);
                 case 503 -> BUSY;
+                case 400 -> "{\"error\":{\"code\":400,\"message\":\"* GenerateContentRequest.model: unexpected model name format\"}}";
                 default -> "{\"error\":{\"code\":" + code + ",\"message\":\"Permission denied\"}}";
             };
             byte[] bytes = reply.getBytes(StandardCharsets.UTF_8);

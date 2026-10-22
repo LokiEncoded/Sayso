@@ -18,7 +18,9 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Asks Google Gemini. One request carries both the recorded question (Gemini understands
@@ -107,21 +109,29 @@ public final class GeminiAssistant implements Assistant {
     public String answer(byte[] questionWav, String selectedText) throws AskException {
         String body = requestBody(questionWav, selectedText);
         List<String> order = tryOrder(models);
+        Set<String> rejectedModels = new HashSet<>();
         AskException lastProblem = null;
         for (int i = 0; i < order.size(); i++) {
+            String model = order.get(i);
+            if (rejectedModels.contains(model)) {
+                continue;   // Google already said this model name is wrong; don't ask again
+            }
             if (i == order.size() - 1) {
                 pause(retryDelayMillis);   // the last try is a retry: give a demand spike a moment to pass
             }
             Duration timeout = i == 0 ? firstTryTimeout : LATER_TRY_TIMEOUT;
             try {
-                return ask(order.get(i), body, timeout);
+                return ask(model, body, timeout);
             } catch (AskException e) {
-                if (!e.isTemporary()) {
-                    throw e;
+                if (!e.anotherModelMightWork()) {
+                    throw e;   // a bad key or bad request: no other model can help
+                }
+                if (e.kind() == AskException.Kind.BAD_MODEL) {
+                    rejectedModels.add(model);
                 }
                 lastProblem = e;
                 if (i < order.size() - 1) {
-                    log.info("{} is unavailable right now; trying {}", order.get(i), order.get(i + 1));
+                    log.info("{} didn't work ({}); trying {}", model, e.kind(), order.get(i + 1));
                 }
             }
         }
@@ -143,7 +153,7 @@ public final class GeminiAssistant implements Assistant {
             log.info("Gemini replied {} in {} ms", response.statusCode(), (System.nanoTime() - started) / 1_000_000);
         } catch (HttpTimeoutException e) {
             log.warn("No reply from Gemini after {} ms", (System.nanoTime() - started) / 1_000_000);
-            throw new AskException("Gemini took too long to answer. Please try again.", true, e);
+            throw new AskException("Gemini took too long to answer. Please try again.", AskException.Kind.TEMPORARY, e);
         } catch (IOException e) {
             throw new AskException("I couldn't reach Gemini. Check your internet connection.", e);
         } catch (InterruptedException e) {
@@ -153,14 +163,23 @@ public final class GeminiAssistant implements Assistant {
         if (response.statusCode() != 200) {
             log.warn("Gemini returned {}: {}", response.statusCode(), response.body());
             throw new AskException(errorMessage(response.statusCode(), response.body()),
-                    isTemporary(response.statusCode()), null);
+                    kindOf(response.statusCode(), response.body()), null);
         }
         return parseAnswer(response.body());
     }
 
-    /** Overloaded (503), rate-limited (429) and other server-side hiccups are worth retrying. */
-    static boolean isTemporary(int status) {
-        return status == 429 || status >= 500;
+    /**
+     * Overloaded (503), rate-limited (429) and other server-side hiccups are worth retrying;
+     * a rejected model name is worth trying the other model; anything else is final.
+     */
+    static AskException.Kind kindOf(int status, String body) {
+        if (status == 429 || status >= 500) {
+            return AskException.Kind.TEMPORARY;
+        }
+        if (status == 404 || errorDetail(body).contains("model")) {
+            return AskException.Kind.BAD_MODEL;
+        }
+        return AskException.Kind.PERMANENT;
     }
 
     private static void pause(long millis) {
@@ -238,28 +257,36 @@ public final class GeminiAssistant implements Assistant {
 
     /** A short spoken explanation of an HTTP error. */
     static String errorMessage(int status, String body) {
-        String detail = "";
-        try {
-            JsonObject error = JsonParser.parseString(body).getAsJsonObject().getAsJsonObject("error");
-            if (error != null && error.has("message")) {
-                detail = error.get("message").getAsString().toLowerCase();
-            }
-        } catch (RuntimeException ignored) {
-            // Not JSON; fall back to the status code alone.
-        }
+        String detail = errorDetail(body);
         if (detail.contains("api key")) {
             return "Gemini rejected the API key. Check gemini.api_key in your settings file.";
+        }
+        // Only for request errors: a 503 also mentions "model" ("This model is ... high demand").
+        if (status == 404 || (status < 500 && detail.contains("model"))) {
+            return "Gemini doesn't recognise the model name. Check gemini.model in your settings file.";
         }
         return switch (status) {
             case 400 -> "Gemini couldn't process that question. Please try again.";
             case 401, 403 -> "Gemini rejected the API key. Check gemini.api_key in your settings file.";
-            case 404 -> "Gemini doesn't recognise that model. Check gemini.model in your settings file.";
             case 429 -> "Gemini says you've hit your usage limit. Wait a minute and try again.";
             case 503 -> "Gemini is very busy right now. Please try again in a moment.";
             default -> status >= 500
                     ? "Gemini is having trouble right now. Please try again in a moment."
                     : "Gemini returned an error, code " + status + ".";
         };
+    }
+
+    /** Google's error message in lower case, or "" if the body isn't a JSON error. */
+    static String errorDetail(String body) {
+        try {
+            JsonObject error = JsonParser.parseString(body).getAsJsonObject().getAsJsonObject("error");
+            if (error != null && error.has("message")) {
+                return error.get("message").getAsString().toLowerCase(java.util.Locale.ROOT);
+            }
+        } catch (RuntimeException ignored) {
+            // Not JSON; fall back to the status code alone.
+        }
+        return "";
     }
 
     private static JsonObject textPart(String text) {
