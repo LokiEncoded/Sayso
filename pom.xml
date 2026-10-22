@@ -6,7 +6,7 @@
 
     <groupId>io.github.lokiencoded</groupId>
     <artifactId>sayso</artifactId>
-    <version>0.2.0</version>
+    <version>0.3.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>Sayso</name>
@@ -21,6 +21,7 @@
         <jnativehook.version>2.2.2</jnativehook.version>
         <jna.version>5.17.0</jna.version>
         <jsoup.version>1.21.2</jsoup.version>
+        <gson.version>2.13.1</gson.version>
         <slf4j.version>2.0.17</slf4j.version>
         <logback.version>1.5.18</logback.version>
         <junit.version>5.11.4</junit.version>
@@ -46,6 +47,13 @@
             <groupId>org.jsoup</groupId>
             <artifactId>jsoup</artifactId>
             <version>${jsoup.version}</version>
+        </dependency>
+
+        <!-- JSON: builds Gemini requests and reads its answers -->
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>${gson.version}</version>
         </dependency>
 
         <!-- Logging: SLF4J is the API we code against, Logback prints it -->

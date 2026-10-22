@@ -1,5 +1,7 @@
 package io.github.lokiencoded.sayso.core;
 
+import io.github.lokiencoded.sayso.ask.Cues;
+import io.github.lokiencoded.sayso.ask.Recorder;
 import io.github.lokiencoded.sayso.capture.CapturedText;
 import io.github.lokiencoded.sayso.capture.TextCapture;
 import io.github.lokiencoded.sayso.speech.SpeechEngine;
@@ -7,6 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -23,8 +26,10 @@ class CommandLoopTest {
     private final FakeSpeech speech = new FakeSpeech();
     private final Settings settings = new Settings();
     private int saves;
+    private final AskController ask = new AskController(new IdleRecorder(), Optional.empty(), capture,
+            Cues.SILENT, Runnable::run, speech.spoken::add);
     private final CommandLoop loop =
-            new CommandLoop(new LinkedBlockingQueue<>(), capture, speech, settings, saved -> saves++);
+            new CommandLoop(new LinkedBlockingQueue<>(), capture, speech, settings, saved -> saves++, ask);
 
     @Test
     void readsSelectedText() {
@@ -114,6 +119,20 @@ class CommandLoopTest {
     }
 
     @Test
+    void askStopsSpeechSoItDoesNotRecordItself() {
+        speech.speaking = true;
+        loop.handle(Command.ASK);
+        assertEquals(1, speech.stops);
+        assertTrue(speech.spoken.getFirst().contains("API key"));   // no key in this test
+    }
+
+    @Test
+    void askReleasedWithoutAQuestionIsIgnored() {
+        assertTrue(loop.handle(Command.ASK_RELEASED));
+        assertTrue(speech.spoken.isEmpty());
+    }
+
+    @Test
     void stopStopsSpeech() {
         assertTrue(loop.handle(Command.STOP));
         assertEquals(1, speech.stops);
@@ -123,6 +142,22 @@ class CommandLoopTest {
     void quitStopsSpeechAndEndsTheLoop() {
         assertFalse(loop.handle(Command.QUIT));
         assertEquals(1, speech.stops);
+    }
+
+    private static final class IdleRecorder implements Recorder {
+        @Override
+        public void start() {
+        }
+
+        @Override
+        public Recording stop() {
+            return Recording.EMPTY;
+        }
+
+        @Override
+        public boolean isRecording() {
+            return false;
+        }
     }
 
     private static final class FakeCapture implements TextCapture {

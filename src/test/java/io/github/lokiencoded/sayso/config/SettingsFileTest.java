@@ -80,6 +80,26 @@ class SettingsFileTest {
     }
 
     @Test
+    void fallbackModelCanBeTurnedOff() throws IOException {
+        Settings settings = new Settings();
+        assertEquals(Settings.DEFAULT_GEMINI_FALLBACK_MODEL, settings.geminiFallbackModel());
+        SettingsFile.apply(properties("gemini.fallback_model="), settings);
+        assertNull(settings.geminiFallbackModel());
+    }
+
+    @Test
+    void modelNamesAreTidiedAndBadOnesReported() throws IOException {
+        Settings settings = new Settings();
+        List<String> problems = SettingsFile.apply(properties("""
+                gemini.model=gemini.model=gemini-3.5-flash-lite
+                gemini.fallback_model=not a model
+                """), settings);
+        assertEquals("gemini-3.5-flash-lite", settings.geminiModel());
+        assertEquals(Settings.DEFAULT_GEMINI_FALLBACK_MODEL, settings.geminiFallbackModel());
+        assertEquals(1, problems.size());
+    }
+
+    @Test
     void outOfRangeSpeedIsClamped() throws IOException {
         Settings settings = new Settings();
         SettingsFile.apply(properties("rate=50"), settings);
@@ -97,7 +117,7 @@ class SettingsFileTest {
     @Test
     void writtenFileExplainsEverySetting() {
         String text = SettingsFile.render(new Settings());
-        for (Command command : Command.values()) {
+        for (Command command : Command.withShortcuts()) {
             assertTrue(text.contains(command.settingsKey() + "="), command.settingsKey());
         }
         assertTrue(text.contains("# Speed"), text);

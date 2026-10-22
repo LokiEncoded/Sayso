@@ -70,6 +70,29 @@ class HotkeyListenerTest {
     }
 
     @Test
+    void lettingGoOfAskEndsTheQuestion() {
+        listener.onKeyPressed(NativeKeyEvent.VC_A, CTRL_ALT_MASK);
+        listener.onKeyPressed(NativeKeyEvent.VC_A, CTRL_ALT_MASK);   // held: auto-repeat
+        listener.onKeyReleased(NativeKeyEvent.VC_A);
+        assertEquals(List.of(Command.ASK, Command.ASK_RELEASED), fired);
+    }
+
+    @Test
+    void lettingGoOfOtherShortcutsSendsNothingExtra() {
+        listener.onKeyPressed(NativeKeyEvent.VC_R, CTRL_ALT_MASK);
+        listener.onKeyReleased(NativeKeyEvent.VC_R);
+        assertEquals(List.of(Command.READ_SELECTION), fired);
+    }
+
+    @Test
+    void aMissedKeyUpStillEndsTheQuestion() {
+        listener.onKeyPressed(NativeKeyEvent.VC_A, CTRL_ALT_MASK);   // Ask starts; its key-up is "missed"
+        windowsSaysHeld = EnumSet.noneOf(Modifier.class);
+        listener.onKeyPressed(NativeKeyEvent.VC_V, CTRL_ALT_MASK);   // stale event triggers the reset
+        assertEquals(List.of(Command.ASK, Command.ASK_RELEASED), fired);
+    }
+
+    @Test
     void modifiersHeldAsksWindows() {
         assertTrue(listener.modifiersHeld());
         windowsSaysHeld = EnumSet.noneOf(Modifier.class);

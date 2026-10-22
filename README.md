@@ -6,7 +6,7 @@ Reads anything on your screen aloud with one shortcut. No copying, no switching 
 
 Sayso is the other half of the voice loop: tools like Wispr Flow turn your voice into text in place; Sayso turns on-screen text into voice in place, and will speak for you too.
 
-**Status:** v0.2: natural offline voices, toggle shortcuts, article-only page reading. Windows only.
+**Status:** v0.3: natural offline voices, article-only page reading, saved settings, and Ask: hold a shortcut, ask about what you selected, hear the answer. Windows only.
 
 Contributing or picking this up again? See [docs/WORKFLOW.md](docs/WORKFLOW.md) for branches, commits and the PR flow.
 
@@ -28,12 +28,25 @@ By default, hold **Ctrl+Alt**, then press (all of these can be changed, see [Set
 | --- | --- |
 | R | Read the selected text; press again to stop |
 | P | Read the whole page or window; press again to stop |
+| A | Ask: hold, speak your question, let go |
 | X | Stop |
 | . / , | Faster / slower |
 | V | Next voice |
 | Q | Quit |
 
 More voices: add any `.onnx` + `.onnx.json` pair from [piper-voices](https://huggingface.co/rhasspy/piper-voices) to `%USERPROFILE%\.sayso\voices`. (Using Windows voices instead? Windows Settings > Time & language > Speech > Add voices.)
+
+## Ask (hold to talk)
+
+Select some text (or nothing), **hold Ctrl+Alt+A, ask your question out loud, and let go**. A rising pip means Sayso is listening, a falling one means it's thinking. Then it speaks the answer.
+
+- "What does this mean?" · "Summarize this in two sentences" · "Translate this to Hindi" · "Is this email rude?"
+- Works without a selection too: just ask.
+- Ctrl+Alt+X stops a long answer, or cancels one still on its way.
+
+**Setup (one time):** get a free API key at [Google AI Studio](https://aistudio.google.com/apikey), paste it after `gemini.api_key=` in your settings file, and restart Sayso.
+
+**Privacy:** your recorded question and the selected text are sent to Google Gemini. Nothing is sent until you hold the Ask shortcut.
 
 ## Settings
 
@@ -78,6 +91,7 @@ sayso/
     │   ├── SaysoApp.java           Entry point: wires the parts together
     │   ├── core/                   Commands, settings, the command loop
     │   ├── hotkey/                 System-wide keyboard shortcuts
+    │   ├── ask/                    Microphone, Gemini, spoken answers
     │   ├── capture/                Getting text from other apps
     │   ├── config/                 Settings file, shortcuts and key names
     │   ├── extract/                Finding the article in a copied page
@@ -91,6 +105,7 @@ sayso/
 | Library | Why |
 | --- | --- |
 | [JNativeHook](https://github.com/kwhat/jnativehook) | Keyboard shortcuts that work in every app, not just ours |
+| [Gson](https://github.com/google/gson) | JSON for Gemini requests and replies |
 | SLF4J + Logback | Logging |
 | JUnit 5 | Tests |
 

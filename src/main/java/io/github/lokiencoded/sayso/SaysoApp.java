@@ -1,8 +1,13 @@
 package io.github.lokiencoded.sayso;
 
+import io.github.lokiencoded.sayso.ask.Assistant;
+import io.github.lokiencoded.sayso.ask.Cues;
+import io.github.lokiencoded.sayso.ask.GeminiAssistant;
+import io.github.lokiencoded.sayso.ask.MicrophoneRecorder;
 import io.github.lokiencoded.sayso.capture.ClipboardTextCapture;
 import io.github.lokiencoded.sayso.capture.TextCapture;
 import io.github.lokiencoded.sayso.config.SettingsFile;
+import io.github.lokiencoded.sayso.core.AskController;
 import io.github.lokiencoded.sayso.core.Command;
 import io.github.lokiencoded.sayso.core.CommandLoop;
 import io.github.lokiencoded.sayso.core.SaysoPaths;
@@ -14,7 +19,9 @@ import io.github.lokiencoded.sayso.speech.SpeechEngines;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 
 /**
@@ -43,12 +50,16 @@ public final class SaysoApp {
         HotkeyListener hotkeys = new HotkeyListener(new KeyBindings(settings.shortcuts()), commands::offer);
         TextCapture capture = new ClipboardTextCapture(hotkeys::modifiersHeld);
         SpeechEngine speech = SpeechEngines.best(paths);
+        AskController ask = new AskController(new MicrophoneRecorder(), assistant(settings), capture,
+                // A cached pool, not a single thread: a new question must never queue behind a slow one.
+                new Cues(), Executors.newCachedThreadPool(SaysoApp::daemon),
+                text -> speech.speak(text, settings.rate(), settings.voiceName()));
 
         hotkeys.start();
         printShortcuts(settings, settingsFile);
 
         // Blocks here until the user presses the quit shortcut.
-        new CommandLoop(commands, capture, speech, settings, settingsFile::save).run();
+        new CommandLoop(commands, capture, speech, settings, settingsFile::save, ask).run();
 
         speech.stop();
         hotkeys.stop();
@@ -57,9 +68,28 @@ public final class SaysoApp {
         System.exit(0);
     }
 
+    /** Gemini, when a key is set (the GEMINI_API_KEY environment variable wins over the settings file). */
+    private static Optional<Assistant> assistant(Settings settings) {
+        String envKey = System.getenv("GEMINI_API_KEY");
+        String key = envKey != null && !envKey.isBlank() ? envKey.strip() : settings.geminiApiKey();
+        if (key == null) {
+            log.info("Ask is off: no Gemini API key. Add gemini.api_key to the settings file to turn it on.");
+            return Optional.empty();
+        }
+        log.info("Ask uses Gemini model {} (fallback: {})", settings.geminiModel(),
+                settings.geminiFallbackModel() == null ? "none" : settings.geminiFallbackModel());
+        return Optional.of(new GeminiAssistant(key, settings.geminiModel(), settings.geminiFallbackModel()));
+    }
+
+    private static Thread daemon(Runnable task) {
+        Thread thread = new Thread(task, "sayso-ask");
+        thread.setDaemon(true);
+        return thread;
+    }
+
     private static void printShortcuts(Settings settings, SettingsFile settingsFile) {
         StringBuilder out = new StringBuilder("\nSayso is running. Shortcuts:\n");
-        for (Command command : Command.values()) {
+        for (Command command : Command.withShortcuts()) {
             out.append(String.format("  %-16s %s%n", settings.shortcut(command).label(), command.description()));
         }
         out.append("\nChange voice, speed or shortcuts in ").append(settingsFile.path()).append('\n');

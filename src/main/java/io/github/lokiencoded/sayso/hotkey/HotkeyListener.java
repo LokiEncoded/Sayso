@@ -9,6 +9,7 @@ import io.github.lokiencoded.sayso.core.Command;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,7 +29,8 @@ public final class HotkeyListener implements NativeKeyListener {
     private final KeyBindings bindings;
     private final Consumer<Command> sink;
     private final Supplier<Set<Modifier>> reallyHeld;
-    private final Set<Integer> firedKeys = ConcurrentHashMap.newKeySet();
+    /** Keys whose shortcut has fired and not yet been let go, with the command they fired. */
+    private final Map<Integer, Command> firedKeys = new ConcurrentHashMap<>();
 
     public HotkeyListener(KeyBindings bindings, Consumer<Command> sink) {
         this(bindings, sink, WindowsKeyState::heldModifiers);
@@ -74,7 +76,7 @@ public final class HotkeyListener implements NativeKeyListener {
 
     @Override
     public void nativeKeyReleased(NativeKeyEvent event) {
-        firedKeys.remove(event.getKeyCode());
+        onKeyReleased(event.getKeyCode());
     }
 
     @Override
@@ -91,13 +93,28 @@ public final class HotkeyListener implements NativeKeyListener {
         // The event says this is one of our shortcuts. Double-check with Windows, because
         // event-based modifier tracking can get stuck after a missed key-up.
         if (bindings.lookup(keyCode, reallyHeld.get()).isEmpty()) {
-            firedKeys.clear();
+            releaseAll();
             log.debug("Ignored {}: Windows reports different modifier keys held", command.get());
             return;
         }
         // Holding a key repeats "pressed" events; act only on the first one.
-        if (firedKeys.add(keyCode)) {
+        if (firedKeys.putIfAbsent(keyCode, command.get()) == null) {
             sink.accept(command.get());
+        }
+    }
+
+    /** A key-up was missed somewhere: forget held keys, and end a question that was being asked. */
+    private void releaseAll() {
+        for (Integer key : firedKeys.keySet()) {
+            onKeyReleased(key);
+        }
+    }
+
+    /** Letting go of the Ask key ends the question (hold to talk). */
+    void onKeyReleased(int keyCode) {
+        Command released = firedKeys.remove(keyCode);
+        if (released == Command.ASK) {
+            sink.accept(Command.ASK_RELEASED);
         }
     }
 }

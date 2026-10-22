@@ -30,6 +30,9 @@ public final class SettingsFile {
 
     private static final String VOICE = "voice";
     private static final String RATE = "rate";
+    private static final String GEMINI_API_KEY = "gemini.api_key";
+    private static final String GEMINI_MODEL = "gemini.model";
+    private static final String GEMINI_FALLBACK_MODEL = "gemini.fallback_model";
 
     private final Path path;
 
@@ -71,6 +74,23 @@ public final class SettingsFile {
         List<String> problems = new ArrayList<>();
 
         settings.setVoiceName(properties.getProperty(VOICE));
+        settings.setGeminiApiKey(properties.getProperty(GEMINI_API_KEY));
+        String model = properties.getProperty(GEMINI_MODEL);
+        if (model != null && !model.isBlank()) {
+            ModelNames.clean(model).ifPresentOrElse(settings::setGeminiModel,
+                    () -> problems.add(GEMINI_MODEL + "=" + model + " is not a model name; using "
+                            + Settings.DEFAULT_GEMINI_MODEL));
+        }
+        String fallback = properties.getProperty(GEMINI_FALLBACK_MODEL);
+        if (fallback != null) {
+            if (fallback.isBlank()) {
+                settings.setGeminiFallbackModel(null);
+            } else {
+                ModelNames.clean(fallback).ifPresentOrElse(settings::setGeminiFallbackModel,
+                        () -> problems.add(GEMINI_FALLBACK_MODEL + "=" + fallback + " is not a model name; using "
+                                + Settings.DEFAULT_GEMINI_FALLBACK_MODEL));
+            }
+        }
 
         String rate = properties.getProperty(RATE);
         if (rate != null && !rate.isBlank()) {
@@ -82,7 +102,7 @@ public final class SettingsFile {
         }
 
         Map<Shortcut, Command> taken = new HashMap<>();
-        for (Command command : Command.values()) {
+        for (Command command : Command.withShortcuts()) {
             String text = properties.getProperty(command.settingsKey());
             if (text != null && !text.isBlank()) {
                 Shortcut.parse(text).ifPresentOrElse(
@@ -134,10 +154,25 @@ public final class SettingsFile {
                 .append(Settings.MAX_RATE).append(" (fastest). 0 is normal.\n");
         out.append(RATE).append('=').append(settings.rate()).append("\n\n");
 
+        out.append("# Ask (Ctrl+Alt+A): your spoken question and the selected text are sent to Google Gemini.\n");
+        out.append("# Get a free API key at https://aistudio.google.com/apikey and paste it below.\n");
+        out.append("# Keep this file private: it holds your key. (Or set the GEMINI_API_KEY environment variable.)\n");
+        out.append(GEMINI_API_KEY).append('=')
+                .append(escape(settings.geminiApiKey() == null ? "" : settings.geminiApiKey())).append('\n');
+        out.append("# Model: ").append(Settings.DEFAULT_GEMINI_MODEL)
+                .append(" is fast, for short spoken answers.\n");
+        out.append(GEMINI_MODEL).append('=').append(escape(settings.geminiModel())).append('\n');
+        out.append("# Fallback: used when the model above is slow or overloaded. ")
+                .append(Settings.DEFAULT_GEMINI_FALLBACK_MODEL)
+                .append(" always points at Google's current Flash model. Leave blank to turn off.\n");
+        out.append(GEMINI_FALLBACK_MODEL).append('=')
+                .append(escape(settings.geminiFallbackModel() == null ? "" : settings.geminiFallbackModel()))
+                .append("\n\n");
+
         out.append("# Shortcuts: one or more of ctrl, alt, shift, win, then one key, joined with +.\n");
         out.append("# Keys: A-Z, 0-9, F1-F24, PERIOD, COMMA, SLASH, SEMICOLON, SPACE, ENTER, HOME, END, PAGE_UP, ...\n");
         out.append("# Example: shortcut.stop=ctrl+shift+F12\n");
-        for (Command command : Command.values()) {
+        for (Command command : Command.withShortcuts()) {
             out.append("# ").append(command.description()).append('\n');
             out.append(command.settingsKey()).append('=')
                     .append(settings.shortcut(command).toSettingsText()).append('\n');
