@@ -22,7 +22,7 @@ This downloads Piper and three English voices (about 200 MB) into `%USERPROFILE%
 
 ## Shortcuts
 
-Hold **Ctrl+Alt**, then press:
+By default, hold **Ctrl+Alt**, then press (all of these can be changed, see [Settings](#settings)):
 
 | Key | Action |
 | --- | --- |
@@ -34,6 +34,16 @@ Hold **Ctrl+Alt**, then press:
 | Q | Quit |
 
 More voices: add any `.onnx` + `.onnx.json` pair from [piper-voices](https://huggingface.co/rhasspy/piper-voices) to `%USERPROFILE%\.sayso\voices`. (Using Windows voices instead? Windows Settings > Time & language > Speech > Add voices.)
+
+## Settings
+
+Voice, speed and every shortcut live in `%USERPROFILE%\.sayso\settings.properties`, created the first time Sayso runs. Changing voice or speed with the shortcuts saves automatically. To change a shortcut, close Sayso, edit the file in Notepad, and start it again:
+
+```
+shortcut.stop=ctrl+shift+F12
+```
+
+Use one or more of `ctrl`, `alt`, `shift`, `win`, then one key. A bad value is reported in the console and the default is used instead.
 
 ## Run it in IntelliJ IDEA
 
@@ -69,6 +79,7 @@ sayso/
     │   ├── core/                   Commands, settings, the command loop
     │   ├── hotkey/                 System-wide keyboard shortcuts
     │   ├── capture/                Getting text from other apps
+    │   ├── config/                 Settings file, shortcuts and key names
     │   ├── extract/                Finding the article in a copied page
     │   └── speech/                 Turning text into speech
     ├── main/resources/logback.xml  Log format
@@ -90,4 +101,4 @@ Speech runs outside Java: [Piper](https://github.com/rhasspy/piper) (MIT) for na
 - In browsers, "Read page" reads just the article (title, body, headings). Apps that copy only plain text are read in full.
 - "Read page" uses Ctrl+A, so the page stays highlighted afterwards; inside a text box it selects only that box.
 - The shortcut also reaches the app you are in; harmless in most apps.
-- Settings (voice, speed) reset each time the app starts, and shortcuts can't be changed yet. Next up.
+- Shortcut changes take effect when Sayso restarts.

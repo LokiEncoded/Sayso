@@ -22,8 +22,9 @@ class CommandLoopTest {
     private final FakeCapture capture = new FakeCapture();
     private final FakeSpeech speech = new FakeSpeech();
     private final Settings settings = new Settings();
+    private int saves;
     private final CommandLoop loop =
-            new CommandLoop(new LinkedBlockingQueue<>(), capture, speech, settings);
+            new CommandLoop(new LinkedBlockingQueue<>(), capture, speech, settings, saved -> saves++);
 
     @Test
     void readsSelectedText() {
@@ -72,6 +73,7 @@ class CommandLoopTest {
         assertEquals(2, settings.rate());
         assertEquals(List.of("Speed 2"), speech.spoken);
         assertEquals(2, speech.lastRate);
+        assertEquals(1, saves);   // speed survives a restart
     }
 
     @Test
@@ -83,6 +85,14 @@ class CommandLoopTest {
         assertEquals("Zira", speech.lastVoice);
         loop.handle(Command.NEXT_VOICE);
         assertEquals("David", speech.lastVoice);
+        assertEquals(3, saves);   // each voice change is saved
+    }
+
+    @Test
+    void readingDoesNotRewriteTheSettingsFile() {
+        capture.selection = "Hello";
+        loop.handle(Command.READ_SELECTION);
+        assertEquals(0, saves);
     }
 
     @Test
