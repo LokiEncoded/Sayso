@@ -12,7 +12,7 @@ A Java 21 Maven project that reads selected text, or a whole page, aloud from an
 | --- | --- | --- |
 | Maven | Simple, declarative, standard in Java teams | Gradle: more flexible, more to learn |
 | Java 21 LTS | Long-term support, widest library support | Java 25 |
-| Package `io.github.lokiencoded.sayvoy` | Java packages start with a domain you control; a GitHub account gives you `io.github.<username>` for free | `com.sayvoy`, which implies owning sayvoy.com |
+| Package `io.github.lokiencoded.tellsy` | Java packages start with a domain you control; a GitHub account gives you `io.github.<username>` for free | `com.tellsy`, which implies owning tellsy.com |
 | JNativeHook for shortcuts | Java alone can only see keys pressed inside its own windows | Writing native Windows code ourselves |
 | Clipboard trick for capture | Works in almost every app with very little code | Windows UI Automation: cleaner, much more work (planned for v0.2) |
 | PowerShell + System.Speech for voice | Built into Windows, zero install; Java has no good speech library | FreeTTS: old and robotic; cloud voices: need an API key and cost money (v0.2) |
@@ -21,7 +21,7 @@ A Java 21 Maven project that reads selected text, or a whole page, aloud from an
 ## Concepts to study from this step
 
 - **Maven basics:** `pom.xml`, coordinates (groupId:artifactId:version), dependency scopes (`test`), the lifecycle (`compile`, `test`, `package`), and why the shade plugin makes one runnable jar.
-- **Interfaces and dependency injection:** read `SayvoyApp`, then `CommandLoopTest`. Notice the test never touches a keyboard or speaker.
+- **Interfaces and dependency injection:** read `TellsyApp`, then `CommandLoopTest`. Notice the test never touches a keyboard or speaker.
 - **Producer/consumer with a `BlockingQueue`:** the hotkey thread produces commands, the loop consumes them.
 - **`ProcessBuilder`:** how Java runs another program, writes to its stdin, and kills it (`SpeechEngine.stop()`).
 - **Java's AWT `Robot` and `Clipboard`:** simulating key presses and borrowing the clipboard politely (`ClipboardSnapshot`).

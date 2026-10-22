@@ -4,16 +4,16 @@
 
 ## What we built
 
-Click into a text box, hold **Ctrl+Alt+D**, speak, let go. Sayvoy sends your speech to Gemini with instructions to clean it up (filler words, false starts, grammar) without changing your meaning or tone, then pastes the result where your cursor is.
+Click into a text box, hold **Ctrl+Alt+D**, speak, let go. Tellsy sends your speech to Gemini with instructions to clean it up (filler words, false starts, grammar) without changing your meaning or tone, then pastes the result where your cursor is.
 
 This is the feature the whole project was aiming at:
 
 ```
-someone's message ─► Ctrl+Alt+R: Sayvoy reads it to you
-                 ─► Ctrl+Alt+D: you say your reply ─► Sayvoy writes it, using that message as context
+someone's message ─► Ctrl+Alt+R: Tellsy reads it to you
+                 ─► Ctrl+Alt+D: you say your reply ─► Tellsy writes it, using that message as context
 ```
 
-Wispr Flow does the second half. Sayvoy does both, and the reply knows what you're replying to.
+Wispr Flow does the second half. Tellsy does both, and the reply knows what you're replying to.
 
 ## Decisions and why
 
@@ -21,7 +21,7 @@ Wispr Flow does the second half. Sayvoy does both, and the reply knows what you'
 | --- | --- | --- |
 | Paste through the clipboard, then restore it | Instant for any length, works with every language and emoji, and is what Wispr Flow does | Simulating each keystroke: slow, and breaks on non-English characters |
 | Wait 500 ms before restoring the clipboard | Electron apps (WhatsApp, Slack, Discord) read the clipboard a moment after Ctrl+V | Restoring at once: those apps would paste your old clipboard instead |
-| Use what Sayvoy last read as context, for 10 minutes | Names get spelled right and "Thursday" means the right Thursday; forgetting it later stops an old message leaking into an unrelated reply | No context (plain dictation) |
+| Use what Tellsy last read as context, for 10 minutes | Names get spelled right and "Thursday" means the right Thursday; forgetting it later stops an old message leaking into an unrelated reply | No context (plain dictation) |
 | A separate prompt that forbids answering | Without it, "can you send me the report?" gets an answer instead of being written down | One prompt for Ask and Reply |
 | One `VoiceController` for Ask and Reply | They're the same until Gemini replies; only the ending differs (speak or paste) | Two near-identical classes |
 | Ctrl+Alt+D (D for dictate) | Free in common apps, easy to hold with one hand | Ctrl+Alt+Space: clashes with input-method switching on some machines |

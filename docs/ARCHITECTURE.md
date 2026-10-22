@@ -1,6 +1,6 @@
 # Architecture
 
-Sayvoy is four small parts connected by interfaces, with one class that wires them together.
+Tellsy is four small parts connected by interfaces, with one class that wires them together.
 
 ```
  keyboard ──► HotkeyListener ──► queue of Commands ──► CommandLoop ──► SpeechEngine ──► speakers
@@ -22,7 +22,7 @@ Sayvoy is four small parts connected by interfaces, with one class that wires th
 ## Rules we follow
 
 1. **Parts depend on interfaces, not on each other's classes.** `CommandLoop` only knows `TextCapture` and `SpeechEngine`. That is why v0.2 can add a neural-voice engine without changing anything else, and why `CommandLoopTest` can use fakes.
-2. **Only `SayvoyApp` creates things.** Every other class receives what it needs through its constructor (dependency injection, done by hand).
+2. **Only `TellsyApp` creates things.** Every other class receives what it needs through its constructor (dependency injection, done by hand).
 3. **Key handling never does slow work.** The hotkey thread only drops a command on the queue; the `CommandLoop` thread does the work. A slow speech start can never freeze the keyboard.
 4. **One failed command never crashes the app.** The loop logs the error and carries on.
 5. **The command loop never waits on the network or a long write.** Slow work (Gemini, feeding Piper a long page) runs on its own thread, so Stop always gets through.
@@ -34,4 +34,4 @@ Sayvoy is four small parts connected by interfaces, with one class that wires th
 | v0.2 | ~~Neural voices~~, ~~reading just the article~~, ~~saved and configurable settings~~: all done |
 | v0.3 | ~~Ask: hold to talk, Gemini hears the question and sees the selection, answer spoken back~~ done |
 | v0.4 | ~~Reply: speak a response, cleaned up and pasted into the text box (the full loop)~~ done |
-| next | Packaging: a Windows installer and tray icon, so Sayvoy runs without IntelliJ |
+| next | Packaging: a Windows installer and tray icon, so Tellsy runs without IntelliJ |
