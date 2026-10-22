@@ -60,6 +60,9 @@ public final class AskController {
             say.accept("Ask needs a Gemini API key. Add it to your Sayso settings file, then restart Sayso.");
             return;
         }
+        if (recorder.isRecording()) {
+            return;   // already listening: a repeated key event must not restart the question
+        }
         cancel();
         try {
             recorder.start();

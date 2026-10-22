@@ -76,8 +76,9 @@ public final class SaysoApp {
             log.info("Ask is off: no Gemini API key. Add gemini.api_key to the settings file to turn it on.");
             return Optional.empty();
         }
-        log.info("Ask uses Gemini model {}", settings.geminiModel());
-        return Optional.of(new GeminiAssistant(key, settings.geminiModel()));
+        log.info("Ask uses Gemini model {} (fallback: {})", settings.geminiModel(),
+                settings.geminiFallbackModel() == null ? "none" : settings.geminiFallbackModel());
+        return Optional.of(new GeminiAssistant(key, settings.geminiModel(), settings.geminiFallbackModel()));
     }
 
     private static Thread daemon(Runnable task) {

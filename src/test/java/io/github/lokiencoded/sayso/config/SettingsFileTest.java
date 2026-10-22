@@ -80,6 +80,14 @@ class SettingsFileTest {
     }
 
     @Test
+    void fallbackModelCanBeTurnedOff() throws IOException {
+        Settings settings = new Settings();
+        assertEquals(Settings.DEFAULT_GEMINI_FALLBACK_MODEL, settings.geminiFallbackModel());
+        SettingsFile.apply(properties("gemini.fallback_model="), settings);
+        assertNull(settings.geminiFallbackModel());
+    }
+
+    @Test
     void outOfRangeSpeedIsClamped() throws IOException {
         Settings settings = new Settings();
         SettingsFile.apply(properties("rate=50"), settings);

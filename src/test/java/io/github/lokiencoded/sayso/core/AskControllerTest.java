@@ -60,6 +60,17 @@ class AskControllerTest {
         assertEquals(2_000, assistant.lastWav.length);
     }
 
+    /** Seen on a real laptop: a second "pressed" event while already listening restarted the question. */
+    @Test
+    void aSecondPressWhileListeningIsIgnored() {
+        AskController ask = controller(Optional.of(assistant));
+        ask.startListening();
+        recorder.durationMillis = 2_000;
+        ask.startListening();
+        assertEquals(1, recorder.starts);
+        assertTrue(recorder.recording);
+    }
+
     @Test
     void withoutAnApiKeyItExplainsHowToSetUp() {
         AskController ask = controller(Optional.empty());
@@ -119,6 +130,7 @@ class AskControllerTest {
     private static final class FakeRecorder implements Recorder {
         boolean recording;
         long durationMillis;
+        int starts;
         AskException failure;
 
         @Override
@@ -126,6 +138,7 @@ class AskControllerTest {
             if (failure != null) {
                 throw failure;
             }
+            starts++;
             recording = true;
         }
 

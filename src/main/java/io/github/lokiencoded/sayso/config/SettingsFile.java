@@ -32,6 +32,7 @@ public final class SettingsFile {
     private static final String RATE = "rate";
     private static final String GEMINI_API_KEY = "gemini.api_key";
     private static final String GEMINI_MODEL = "gemini.model";
+    private static final String GEMINI_FALLBACK_MODEL = "gemini.fallback_model";
 
     private final Path path;
 
@@ -75,6 +76,9 @@ public final class SettingsFile {
         settings.setVoiceName(properties.getProperty(VOICE));
         settings.setGeminiApiKey(properties.getProperty(GEMINI_API_KEY));
         settings.setGeminiModel(properties.getProperty(GEMINI_MODEL));
+        if (properties.containsKey(GEMINI_FALLBACK_MODEL)) {
+            settings.setGeminiFallbackModel(properties.getProperty(GEMINI_FALLBACK_MODEL));
+        }
 
         String rate = properties.getProperty(RATE);
         if (rate != null && !rate.isBlank()) {
@@ -145,7 +149,11 @@ public final class SettingsFile {
                 .append(escape(settings.geminiApiKey() == null ? "" : settings.geminiApiKey())).append('\n');
         out.append("# Model: ").append(Settings.DEFAULT_GEMINI_MODEL)
                 .append(" always uses Google's current Flash model.\n");
-        out.append(GEMINI_MODEL).append('=').append(escape(settings.geminiModel())).append("\n\n");
+        out.append(GEMINI_MODEL).append('=').append(escape(settings.geminiModel())).append('\n');
+        out.append("# Fallback: used when the model above is overloaded. Leave blank to turn off.\n");
+        out.append(GEMINI_FALLBACK_MODEL).append('=')
+                .append(escape(settings.geminiFallbackModel() == null ? "" : settings.geminiFallbackModel()))
+                .append("\n\n");
 
         out.append("# Shortcuts: one or more of ctrl, alt, shift, win, then one key, joined with +.\n");
         out.append("# Keys: A-Z, 0-9, F1-F24, PERIOD, COMMA, SLASH, SEMICOLON, SPACE, ENTER, HOME, END, PAGE_UP, ...\n");

@@ -16,7 +16,9 @@ import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
 
 /**
  * Asks Google Gemini. One request carries both the recorded question (Gemini understands
@@ -44,31 +46,74 @@ public final class GeminiAssistant implements Assistant {
             - If the audio has no clear question, say so in one short sentence.
             """;
 
+    /** Tries per model before moving on; Google's "high demand" spikes usually pass within seconds. */
+    static final int ATTEMPTS_PER_MODEL = 2;
+
     private final HttpClient http;
     private final String baseUrl;
     private final String apiKey;
-    private final String model;
+    private final List<String> models;
+    private final long retryDelayMillis;
 
-    public GeminiAssistant(String apiKey, String model) {
+    /**
+     * @param model         the model to ask first
+     * @param fallbackModel asked when the first is overloaded or rate-limited; null for none
+     */
+    public GeminiAssistant(String apiKey, String model, String fallbackModel) {
         // HTTP/1.1 on purpose: with HTTP/2, a request bigger than the 64 KB flow-control window
-        // (a few seconds of audio is ~150 KB) can stall in Java's HttpClient until it times out.
+        // (a few seconds of audio is ~150 KB) stalled in Java's HttpClient until it timed out.
         this(HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_1_1)
                 .connectTimeout(Duration.ofSeconds(10))
-                .build(), GOOGLE, apiKey, model);
+                .build(), GOOGLE, apiKey, modelsToTry(model, fallbackModel), 1_000);
     }
 
-    /** For tests: talk to a fake server instead of Google. */
-    GeminiAssistant(HttpClient http, String baseUrl, String apiKey, String model) {
+    /** For tests: talk to a fake server instead of Google, without real waiting. */
+    GeminiAssistant(HttpClient http, String baseUrl, String apiKey, List<String> models, long retryDelayMillis) {
         this.http = http;
         this.baseUrl = baseUrl;
         this.apiKey = apiKey;
-        this.model = model;
+        this.models = List.copyOf(models);
+        this.retryDelayMillis = retryDelayMillis;
     }
 
+    static List<String> modelsToTry(String model, String fallbackModel) {
+        List<String> models = new ArrayList<>(List.of(model));
+        if (fallbackModel != null && !fallbackModel.isBlank() && !fallbackModel.equals(model)) {
+            models.add(fallbackModel);
+        }
+        return models;
+    }
+
+    /**
+     * Asks each model in turn. Temporary failures (overloaded, rate-limited, timed out) are
+     * retried after a short pause and then handed to the fallback model; anything else,
+     * like a bad API key, fails at once because retrying can't help.
+     */
     @Override
     public String answer(byte[] questionWav, String selectedText) throws AskException {
         String body = requestBody(questionWav, selectedText);
+        AskException lastProblem = null;
+        for (String model : models) {
+            for (int attempt = 1; attempt <= ATTEMPTS_PER_MODEL; attempt++) {
+                try {
+                    return ask(model, body);
+                } catch (AskException e) {
+                    if (!e.isTemporary()) {
+                        throw e;
+                    }
+                    lastProblem = e;
+                    if (attempt < ATTEMPTS_PER_MODEL) {
+                        pause(retryDelayMillis * attempt);
+                    }
+                }
+            }
+            log.info("{} is unavailable right now; trying the next model", model);
+        }
+        throw lastProblem;
+    }
+
+    private String ask(String model, String body) throws AskException {
         HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + "/v1beta/models/" + model + ":generateContent"))
                 .timeout(Duration.ofSeconds(30))
                 .header("Content-Type", "application/json")
@@ -83,7 +128,7 @@ public final class GeminiAssistant implements Assistant {
             log.info("Gemini replied {} in {} ms", response.statusCode(), (System.nanoTime() - started) / 1_000_000);
         } catch (HttpTimeoutException e) {
             log.warn("No reply from Gemini after {} ms", (System.nanoTime() - started) / 1_000_000);
-            throw new AskException("Gemini took too long to answer. Please try again.", e);
+            throw new AskException("Gemini took too long to answer. Please try again.", true, e);
         } catch (IOException e) {
             throw new AskException("I couldn't reach Gemini. Check your internet connection.", e);
         } catch (InterruptedException e) {
@@ -92,9 +137,23 @@ public final class GeminiAssistant implements Assistant {
         }
         if (response.statusCode() != 200) {
             log.warn("Gemini returned {}: {}", response.statusCode(), response.body());
-            throw new AskException(errorMessage(response.statusCode(), response.body()));
+            throw new AskException(errorMessage(response.statusCode(), response.body()),
+                    isTemporary(response.statusCode()), null);
         }
         return parseAnswer(response.body());
+    }
+
+    /** Overloaded (503), rate-limited (429) and other server-side hiccups are worth retrying. */
+    static boolean isTemporary(int status) {
+        return status == 429 || status >= 500;
+    }
+
+    private static void pause(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     /** The JSON body for generateContent: instructions, the selected text, then the audio question. */
@@ -181,6 +240,7 @@ public final class GeminiAssistant implements Assistant {
             case 401, 403 -> "Gemini rejected the API key. Check gemini.api_key in your settings file.";
             case 404 -> "Gemini doesn't recognise that model. Check gemini.model in your settings file.";
             case 429 -> "Gemini says you've hit your usage limit. Wait a minute and try again.";
+            case 503 -> "Gemini is very busy right now. Please try again in a moment.";
             default -> status >= 500
                     ? "Gemini is having trouble right now. Please try again in a moment."
                     : "Gemini returned an error, code " + status + ".";

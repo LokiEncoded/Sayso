@@ -23,10 +23,14 @@ public final class Settings {
     /** Always points at Google's current Flash model, so renames and deprecations don't break Ask. */
     public static final String DEFAULT_GEMINI_MODEL = "gemini-flash-latest";
 
+    /** A lighter stable model with its own capacity, used when the main one is overloaded. */
+    public static final String DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-3.5-flash-lite";
+
     private int rate = DEFAULT_RATE;
     private String voiceName;   // null means "the first installed voice"
     private String geminiApiKey;   // null means Ask is not set up
     private String geminiModel = DEFAULT_GEMINI_MODEL;
+    private String geminiFallbackModel = DEFAULT_GEMINI_FALLBACK_MODEL;   // null means no fallback
     private final Map<Command, Shortcut> shortcuts = new EnumMap<>(Command.class);
 
     public Settings() {
@@ -82,6 +86,15 @@ public final class Settings {
 
     public void setGeminiModel(String model) {
         this.geminiModel = model == null || model.isBlank() ? DEFAULT_GEMINI_MODEL : model.strip();
+    }
+
+    public String geminiFallbackModel() {
+        return geminiFallbackModel;
+    }
+
+    /** Blank turns the fallback off. */
+    public void setGeminiFallbackModel(String model) {
+        this.geminiFallbackModel = model == null || model.isBlank() ? null : model.strip();
     }
 
     public Shortcut shortcut(Command command) {
